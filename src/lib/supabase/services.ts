@@ -632,6 +632,533 @@ export const portalAccessService = {
 };
 
 // ============================================================================
+// LESSON PROGRESS SERVICES
+// ============================================================================
+
+const LESSON_PROGRESS_KEY = 'koenig_lesson_progress';
+const QUIZ_ATTEMPTS_KEY = 'koenig_quiz_attempts';
+const GAMIFICATION_KEY = 'koenig_gamification';
+
+export const lessonProgressService = {
+  // Get all lesson progress for an enrollment
+  async getByEnrollment(enrollmentId: string): Promise<AnyRecord[]> {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('lesson_progress')
+        .select('*')
+        .eq('enrollment_id', enrollmentId);
+      if (error) throw error;
+      return data || [];
+    }
+    const progress = getFromStorage<AnyRecord[]>(LESSON_PROGRESS_KEY, []);
+    return progress.filter(p => p.enrollment_id === enrollmentId);
+  },
+
+  // Get lesson progress for a specific user
+  async getByUser(userId: string): Promise<AnyRecord[]> {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('lesson_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .order('last_accessed_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    }
+    const progress = getFromStorage<AnyRecord[]>(LESSON_PROGRESS_KEY, []);
+    return progress.filter(p => p.user_id === userId);
+  },
+
+  // Get or create lesson progress
+  async getOrCreate(userId: string, lessonId: string, enrollmentId: string): Promise<AnyRecord> {
+    if (isSupabaseConfigured()) {
+      // Try to find existing
+      const { data: existing } = await supabase
+        .from('lesson_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('lesson_id', lessonId)
+        .single();
+
+      if (existing) return existing;
+
+      // Create new
+      const newProgress = {
+        id: crypto.randomUUID(),
+        user_id: userId,
+        lesson_id: lessonId,
+        enrollment_id: enrollmentId,
+        status: 'not_started',
+        progress_percent: 0,
+        last_position: 0,
+        watched_duration: 0,
+        last_accessed_at: new Date().toISOString(),
+      };
+
+      const { data, error } = await supabase
+        .from('lesson_progress')
+        .insert(newProgress)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    }
+
+    // localStorage fallback
+    const allProgress = getFromStorage<AnyRecord[]>(LESSON_PROGRESS_KEY, []);
+    const existing = allProgress.find(p => p.user_id === userId && p.lesson_id === lessonId);
+    if (existing) return existing;
+
+    const newProgress = {
+      id: crypto.randomUUID(),
+      user_id: userId,
+      lesson_id: lessonId,
+      enrollment_id: enrollmentId,
+      status: 'not_started',
+      progress_percent: 0,
+      last_position: 0,
+      watched_duration: 0,
+      last_accessed_at: new Date().toISOString(),
+    };
+    allProgress.push(newProgress);
+    broadcastChange(LESSON_PROGRESS_KEY, allProgress);
+    return newProgress;
+  },
+
+  // Update lesson progress
+  async updateProgress(
+    userId: string,
+    lessonId: string,
+    progressPercent: number,
+    lastPosition: number,
+    watchedDuration?: number
+  ): Promise<AnyRecord> {
+    const updates: AnyRecord = {
+      progress_percent: Math.round(progressPercent),
+      last_position: Math.round(lastPosition),
+      last_accessed_at: new Date().toISOString(),
+    };
+
+    if (watchedDuration !== undefined) {
+      updates.watched_duration = Math.round(watchedDuration);
+    }
+
+    if (progressPercent > 0) {
+      updates.status = 'in_progress';
+      if (!updates.started_at) {
+        updates.started_at = new Date().toISOString();
+      }
+    }
+
+    if (progressPercent >= 100) {
+      updates.status = 'completed';
+      updates.completed_at = new Date().toISOString();
+      updates.progress_percent = 100;
+    }
+
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('lesson_progress')
+        .update(updates)
+        .eq('user_id', userId)
+        .eq('lesson_id', lessonId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    }
+
+    const allProgress = getFromStorage<AnyRecord[]>(LESSON_PROGRESS_KEY, []);
+    const index = allProgress.findIndex(p => p.user_id === userId && p.lesson_id === lessonId);
+    if (index !== -1) {
+      allProgress[index] = { ...allProgress[index], ...updates };
+      broadcastChange(LESSON_PROGRESS_KEY, allProgress);
+      return allProgress[index];
+    }
+    throw new Error('Lesson progress not found');
+  },
+
+  // Mark lesson as completed
+  async markCompleted(userId: string, lessonId: string): Promise<AnyRecord> {
+    return this.updateProgress(userId, lessonId, 100, 0);
+  },
+
+  // Subscribe to real-time updates for a user's progress
+  subscribe(userId: string, callback: (payload: { eventType: string; new: AnyRecord; old: AnyRecord }) => void): RealtimeChannel | null {
+    if (isSupabaseConfigured()) {
+      return supabase
+        .channel(`lesson-progress-${userId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'lesson_progress', filter: `user_id=eq.${userId}` },
+          (payload) => {
+            callback({
+              eventType: payload.eventType,
+              new: payload.new as AnyRecord,
+              old: payload.old as AnyRecord,
+            });
+          }
+        )
+        .subscribe();
+    }
+    return null;
+  },
+
+  unsubscribe(channel: RealtimeChannel | null) {
+    if (channel) supabase.removeChannel(channel);
+  },
+};
+
+// ============================================================================
+// QUIZ ATTEMPT SERVICES
+// ============================================================================
+
+export const quizAttemptService = {
+  // Get attempts for a user
+  async getByUser(userId: string): Promise<AnyRecord[]> {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('quiz_attempts')
+        .select('*')
+        .eq('user_id', userId)
+        .order('completed_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    }
+    const attempts = getFromStorage<AnyRecord[]>(QUIZ_ATTEMPTS_KEY, []);
+    return attempts.filter(a => a.user_id === userId);
+  },
+
+  // Get attempts for a specific quiz
+  async getByQuiz(userId: string, quizId: string): Promise<AnyRecord[]> {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('quiz_attempts')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('quiz_id', quizId)
+        .order('attempt_number', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    }
+    const attempts = getFromStorage<AnyRecord[]>(QUIZ_ATTEMPTS_KEY, []);
+    return attempts.filter(a => a.user_id === userId && a.quiz_id === quizId);
+  },
+
+  // Record a quiz attempt
+  async create(attempt: {
+    userId: string;
+    quizId: string;
+    enrollmentId: string;
+    score: number;
+    passed: boolean;
+    totalQuestions: number;
+    correctAnswers: number;
+    answers: Record<string, string[]>;
+    startedAt: Date;
+    completedAt: Date;
+    durationSeconds: number;
+  }): Promise<AnyRecord> {
+    // Get attempt count for this quiz
+    const previousAttempts = await this.getByQuiz(attempt.userId, attempt.quizId);
+    const attemptNumber = previousAttempts.length + 1;
+
+    const newAttempt = {
+      id: crypto.randomUUID(),
+      user_id: attempt.userId,
+      quiz_id: attempt.quizId,
+      enrollment_id: attempt.enrollmentId,
+      score: attempt.score,
+      passed: attempt.passed,
+      total_questions: attempt.totalQuestions,
+      correct_answers: attempt.correctAnswers,
+      answers: attempt.answers,
+      started_at: attempt.startedAt.toISOString(),
+      completed_at: attempt.completedAt.toISOString(),
+      duration_seconds: attempt.durationSeconds,
+      attempt_number: attemptNumber,
+    };
+
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('quiz_attempts')
+        .insert(newAttempt)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    }
+
+    const allAttempts = getFromStorage<AnyRecord[]>(QUIZ_ATTEMPTS_KEY, []);
+    allAttempts.push(newAttempt);
+    broadcastChange(QUIZ_ATTEMPTS_KEY, allAttempts);
+    return newAttempt;
+  },
+
+  // Subscribe to real-time updates
+  subscribe(userId: string, callback: (payload: { eventType: string; new: AnyRecord; old: AnyRecord }) => void): RealtimeChannel | null {
+    if (isSupabaseConfigured()) {
+      return supabase
+        .channel(`quiz-attempts-${userId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'quiz_attempts', filter: `user_id=eq.${userId}` },
+          (payload) => {
+            callback({
+              eventType: payload.eventType,
+              new: payload.new as AnyRecord,
+              old: payload.old as AnyRecord,
+            });
+          }
+        )
+        .subscribe();
+    }
+    return null;
+  },
+
+  unsubscribe(channel: RealtimeChannel | null) {
+    if (channel) supabase.removeChannel(channel);
+  },
+};
+
+// ============================================================================
+// GAMIFICATION PROFILE SERVICES
+// ============================================================================
+
+export const gamificationService = {
+  // Get gamification profile for a user
+  async getByUser(userId: string): Promise<AnyRecord | null> {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('gamification_profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    }
+    const profiles = getFromStorage<AnyRecord[]>(GAMIFICATION_KEY, []);
+    return profiles.find(p => p.user_id === userId) || null;
+  },
+
+  // Get or create gamification profile
+  async getOrCreate(userId: string): Promise<AnyRecord> {
+    const existing = await this.getByUser(userId);
+    if (existing) return existing;
+
+    const newProfile = {
+      id: crypto.randomUUID(),
+      user_id: userId,
+      total_xp: 0,
+      current_level: 1,
+      xp_to_next_level: 100,
+      current_streak: 0,
+      longest_streak: 0,
+      last_activity_date: null,
+      total_study_minutes: 0,
+      total_lessons_completed: 0,
+      total_quizzes_passed: 0,
+      total_achievements: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('gamification_profiles')
+        .insert(newProfile)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    }
+
+    const profiles = getFromStorage<AnyRecord[]>(GAMIFICATION_KEY, []);
+    profiles.push(newProfile);
+    broadcastChange(GAMIFICATION_KEY, profiles);
+    return newProfile;
+  },
+
+  // Add XP and update level
+  async addXP(userId: string, xp: number): Promise<AnyRecord> {
+    const profile = await this.getOrCreate(userId);
+    let newXP = (profile.total_xp || 0) + xp;
+    let level = profile.current_level || 1;
+    let xpToNext = profile.xp_to_next_level || 100;
+
+    // Level up logic
+    while (newXP >= xpToNext) {
+      newXP -= xpToNext;
+      level++;
+      xpToNext = Math.floor(xpToNext * 1.5); // 50% more XP needed each level
+    }
+
+    const updates = {
+      total_xp: (profile.total_xp || 0) + xp,
+      current_level: level,
+      xp_to_next_level: xpToNext,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('gamification_profiles')
+        .update(updates)
+        .eq('user_id', userId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    }
+
+    const profiles = getFromStorage<AnyRecord[]>(GAMIFICATION_KEY, []);
+    const index = profiles.findIndex(p => p.user_id === userId);
+    if (index !== -1) {
+      profiles[index] = { ...profiles[index], ...updates };
+      broadcastChange(GAMIFICATION_KEY, profiles);
+      return profiles[index];
+    }
+    throw new Error('Profile not found');
+  },
+
+  // Update streak
+  async updateStreak(userId: string): Promise<AnyRecord> {
+    const profile = await this.getOrCreate(userId);
+    const today = new Date().toISOString().split('T')[0];
+    const lastDate = profile.last_activity_date;
+
+    let newStreak = profile.current_streak || 0;
+    let longestStreak = profile.longest_streak || 0;
+
+    if (lastDate !== today) {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+      if (lastDate === yesterdayStr) {
+        newStreak++;
+      } else {
+        newStreak = 1;
+      }
+
+      if (newStreak > longestStreak) {
+        longestStreak = newStreak;
+      }
+    }
+
+    const updates = {
+      current_streak: newStreak,
+      longest_streak: longestStreak,
+      last_activity_date: today,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('gamification_profiles')
+        .update(updates)
+        .eq('user_id', userId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    }
+
+    const profiles = getFromStorage<AnyRecord[]>(GAMIFICATION_KEY, []);
+    const index = profiles.findIndex(p => p.user_id === userId);
+    if (index !== -1) {
+      profiles[index] = { ...profiles[index], ...updates };
+      broadcastChange(GAMIFICATION_KEY, profiles);
+      return profiles[index];
+    }
+    throw new Error('Profile not found');
+  },
+
+  // Increment lessons completed
+  async incrementLessonsCompleted(userId: string): Promise<AnyRecord> {
+    const profile = await this.getOrCreate(userId);
+    const updates = {
+      total_lessons_completed: (profile.total_lessons_completed || 0) + 1,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('gamification_profiles')
+        .update(updates)
+        .eq('user_id', userId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    }
+
+    const profiles = getFromStorage<AnyRecord[]>(GAMIFICATION_KEY, []);
+    const index = profiles.findIndex(p => p.user_id === userId);
+    if (index !== -1) {
+      profiles[index] = { ...profiles[index], ...updates };
+      broadcastChange(GAMIFICATION_KEY, profiles);
+      return profiles[index];
+    }
+    throw new Error('Profile not found');
+  },
+
+  // Increment quizzes passed
+  async incrementQuizzesPassed(userId: string): Promise<AnyRecord> {
+    const profile = await this.getOrCreate(userId);
+    const updates = {
+      total_quizzes_passed: (profile.total_quizzes_passed || 0) + 1,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase
+        .from('gamification_profiles')
+        .update(updates)
+        .eq('user_id', userId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    }
+
+    const profiles = getFromStorage<AnyRecord[]>(GAMIFICATION_KEY, []);
+    const index = profiles.findIndex(p => p.user_id === userId);
+    if (index !== -1) {
+      profiles[index] = { ...profiles[index], ...updates };
+      broadcastChange(GAMIFICATION_KEY, profiles);
+      return profiles[index];
+    }
+    throw new Error('Profile not found');
+  },
+
+  // Subscribe to real-time updates
+  subscribe(userId: string, callback: (payload: { eventType: string; new: AnyRecord; old: AnyRecord }) => void): RealtimeChannel | null {
+    if (isSupabaseConfigured()) {
+      return supabase
+        .channel(`gamification-${userId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'gamification_profiles', filter: `user_id=eq.${userId}` },
+          (payload) => {
+            callback({
+              eventType: payload.eventType,
+              new: payload.new as AnyRecord,
+              old: payload.old as AnyRecord,
+            });
+          }
+        )
+        .subscribe();
+    }
+    return null;
+  },
+
+  unsubscribe(channel: RealtimeChannel | null) {
+    if (channel) supabase.removeChannel(channel);
+  },
+};
+
+// ============================================================================
 // GLOBAL SYNC LISTENER
 // ============================================================================
 

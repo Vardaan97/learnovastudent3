@@ -13,5 +13,8 @@ export {
   courseService,
   enrollmentService,
   portalAccessService,
+  lessonProgressService,
+  quizAttemptService,
+  gamificationService,
   setupGlobalSyncListener,
 } from './services';
