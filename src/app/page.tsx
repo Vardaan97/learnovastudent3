@@ -30,7 +30,7 @@ import ExamPrep from '@/components/ExamPrep';
 import CelebrationOverlay from '@/components/CelebrationOverlay';
 import KeyboardShortcuts, { useKeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import WIPPopup, { useWIP } from '@/components/WIPPopup';
-import { useTour, TourLauncherButton } from '@/components/OnboardingTour';
+import { useTour, TourLauncherButton, STORAGE_KEYS } from '@/components/OnboardingTour';
 
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -38,10 +38,14 @@ import { useGamification } from '@/context/GamificationContext';
 import {
   learnerProfile as defaultLearnerProfile,
   course,
-  modules as initialModules,
-  learnerProgress,
-  qubitsModules as initialQubitsModules,
-  qubitsDashboard as initialQubitsDashboard,
+  modules as demoModules,
+  initialModulesData,
+  learnerProgress as demoProgress,
+  initialLearnerProgress,
+  qubitsModules as demoQubitsModules,
+  initialQubitsModulesData,
+  qubitsDashboard as demoQubitsDashboard,
+  initialQubitsDashboardData,
   trainer,
   resources,
   notifications as initialNotifications,
@@ -95,14 +99,56 @@ function LearnerDashboard() {
   const { theme, isCustomBranded } = useTheme();
   const { addXP, level, streak, xp, unlockAchievement } = useGamification();
   const { wipState, showWIP, hideWIP } = useWIP();
-  const { startTour, hasCompletedTour } = useTour();
+  const { startTour, hasCompletedTour, isFirstVisit, isInitialized } = useTour();
+
+  // Determine if this is a first-time user (check localStorage directly for reliability)
+  const [isNewUser, setIsNewUser] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const userProgress = localStorage.getItem(STORAGE_KEYS.PROGRESS);
+      const firstVisit = localStorage.getItem('learnova_first_visit');
+      // User is new if they haven't stored progress yet OR it's their first visit
+      setIsNewUser(userProgress === null && firstVisit === null);
+    }
+  }, []);
 
   const [activeTab, setActiveTab] = useState<TabId>('course');
-  const [modules, setModules] = useState(initialModules);
-  const [progress, setProgress] = useState(learnerProgress);
-  const [qubitsModules, setQubitsModules] = useState<QubitsModule[]>(initialQubitsModules);
-  const [qubitsDashboard, setQubitsDashboard] = useState<QubitsDashboard>(initialQubitsDashboard);
+  // Use initial (0%) data for new users, demo data for returning users
+  const [modules, setModules] = useState(() => {
+    if (typeof window === 'undefined') return initialModulesData;
+    const stored = localStorage.getItem(STORAGE_KEYS.PROGRESS);
+    return stored === null ? initialModulesData : demoModules;
+  });
+  const [progress, setProgress] = useState(() => {
+    if (typeof window === 'undefined') return initialLearnerProgress;
+    const stored = localStorage.getItem(STORAGE_KEYS.PROGRESS);
+    return stored === null ? initialLearnerProgress : demoProgress;
+  });
+  const [qubitsModules, setQubitsModules] = useState<QubitsModule[]>(() => {
+    if (typeof window === 'undefined') return initialQubitsModulesData;
+    const stored = localStorage.getItem(STORAGE_KEYS.PROGRESS);
+    return stored === null ? initialQubitsModulesData : demoQubitsModules;
+  });
+  const [qubitsDashboard, setQubitsDashboard] = useState<QubitsDashboard>(() => {
+    if (typeof window === 'undefined') return initialQubitsDashboardData;
+    const stored = localStorage.getItem(STORAGE_KEYS.PROGRESS);
+    return stored === null ? initialQubitsDashboardData : demoQubitsDashboard;
+  });
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+
+  // Mark that user has started using the portal (save progress marker)
+  useEffect(() => {
+    if (isAuthenticated && !isLoading && typeof window !== 'undefined') {
+      // Set progress marker after a delay to allow tour to complete
+      const timer = setTimeout(() => {
+        if (!localStorage.getItem(STORAGE_KEYS.PROGRESS)) {
+          localStorage.setItem(STORAGE_KEYS.PROGRESS, JSON.stringify({ started: new Date().toISOString() }));
+        }
+      }, 5000); // 5 second delay after login
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, isLoading]);
 
   // Video player state
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
@@ -504,8 +550,8 @@ function LearnerDashboard() {
 
   // Handle Qubits reset
   const handleQubitsReset = useCallback(() => {
-    setQubitsModules(initialQubitsModules);
-    setQubitsDashboard(initialQubitsDashboard);
+    setQubitsModules(initialQubitsModulesData);
+    setQubitsDashboard(initialQubitsDashboardData);
   }, []);
 
   // Handle share progress
@@ -544,15 +590,8 @@ function LearnerDashboard() {
     }
   };
 
-  // Auto-start tour for first-time users
-  useEffect(() => {
-    if (!hasCompletedTour && isAuthenticated && !isLoading) {
-      const timer = setTimeout(() => {
-        startTour();
-      }, 1500); // Small delay for UI to load
-      return () => clearTimeout(timer);
-    }
-  }, [hasCompletedTour, isAuthenticated, isLoading, startTour]);
+  // Tour is now auto-started by TourProvider for first-time visitors
+  // No need for duplicate auto-start logic here
 
   // Loading state
   if (isLoading) {

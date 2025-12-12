@@ -706,55 +706,107 @@ interface TourContextValue {
   startTour: (demoMode?: boolean) => void;
   isActive: boolean;
   hasCompletedTour: boolean;
+  isFirstVisit: boolean;
+  isInitialized: boolean;
   resetTour: () => void;
 }
 
 const TourContext = React.createContext<TourContextValue | null>(null);
 
+// Storage key constants
+const STORAGE_KEYS = {
+  TOUR_COMPLETED: 'learnova_tour_completed',
+  FIRST_VISIT: 'learnova_first_visit',
+  PROGRESS: 'learnova_user_progress',
+};
+
 export function TourProvider({ children }: { children: React.ReactNode }) {
   const [isActive, setIsActive] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
-  const [hasCompletedTour, setHasCompletedTour] = useState(true); // Default to true to prevent flash
+  const [hasCompletedTour, setHasCompletedTour] = useState(false);
+  const [isFirstVisit, setIsFirstVisit] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [shouldAutoStart, setShouldAutoStart] = useState(false);
 
+  // Initialize tour state from localStorage
   useEffect(() => {
-    // Check if user has completed tour before (runs on client only)
-    const completed = localStorage.getItem('koenig_onboarding_completed');
-    const firstLogin = localStorage.getItem('koenig_first_login');
+    // Only run on client
+    if (typeof window === 'undefined') return;
 
-    // If this is the first time checking (no firstLogin flag), set it
-    if (firstLogin === null) {
-      localStorage.setItem('koenig_first_login', 'true');
+    const tourCompleted = localStorage.getItem(STORAGE_KEYS.TOUR_COMPLETED);
+    const visitedBefore = localStorage.getItem(STORAGE_KEYS.FIRST_VISIT);
+
+    console.log('[Tour] Init check - tourCompleted:', tourCompleted, 'visitedBefore:', visitedBefore);
+
+    // First time visitor - never been here before
+    if (visitedBefore === null) {
+      console.log('[Tour] First time visitor detected!');
+      localStorage.setItem(STORAGE_KEYS.FIRST_VISIT, new Date().toISOString());
+      setIsFirstVisit(true);
       setHasCompletedTour(false);
+      setShouldAutoStart(true);
     } else {
-      setHasCompletedTour(completed === 'true');
+      // Returning visitor - check if tour was completed
+      setIsFirstVisit(false);
+      setHasCompletedTour(tourCompleted === 'true');
     }
+
+    setIsInitialized(true);
   }, []);
 
-  const startTour = (demo = false) => {
+  // Auto-start tour for first-time visitors after initialization
+  useEffect(() => {
+    if (isInitialized && shouldAutoStart && !isActive) {
+      console.log('[Tour] Auto-starting tour for first-time visitor');
+      // Delay to allow page to fully render
+      const timer = setTimeout(() => {
+        setIsActive(true);
+        setShouldAutoStart(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isInitialized, shouldAutoStart, isActive]);
+
+  const startTour = useCallback((demo = false) => {
+    console.log('[Tour] Starting tour manually, demo:', demo);
     setDemoMode(demo);
     setIsActive(true);
-  };
+  }, []);
 
-  const resetTour = () => {
-    localStorage.removeItem('koenig_onboarding_completed');
+  const resetTour = useCallback(() => {
+    console.log('[Tour] Resetting tour');
+    localStorage.removeItem(STORAGE_KEYS.TOUR_COMPLETED);
+    localStorage.removeItem(STORAGE_KEYS.FIRST_VISIT);
     setHasCompletedTour(false);
-  };
+    setIsFirstVisit(true);
+  }, []);
 
-  const handleComplete = () => {
+  const handleComplete = useCallback(() => {
+    console.log('[Tour] Tour completed');
     setIsActive(false);
     setHasCompletedTour(true);
-    localStorage.setItem('koenig_onboarding_completed', 'true');
-  };
+    localStorage.setItem(STORAGE_KEYS.TOUR_COMPLETED, 'true');
+  }, []);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
+    console.log('[Tour] Tour closed');
     setIsActive(false);
-    // Still mark as completed if they close early
+    // Mark as completed even if closed early
     setHasCompletedTour(true);
-    localStorage.setItem('koenig_onboarding_completed', 'true');
-  };
+    localStorage.setItem(STORAGE_KEYS.TOUR_COMPLETED, 'true');
+  }, []);
+
+  const contextValue = React.useMemo(() => ({
+    startTour,
+    isActive,
+    hasCompletedTour,
+    isFirstVisit,
+    isInitialized,
+    resetTour,
+  }), [startTour, isActive, hasCompletedTour, isFirstVisit, isInitialized, resetTour]);
 
   return (
-    <TourContext.Provider value={{ startTour, isActive, hasCompletedTour, resetTour }}>
+    <TourContext.Provider value={contextValue}>
       {children}
       <OnboardingTour
         isOpen={isActive}
@@ -773,3 +825,6 @@ export function useTour() {
   }
   return context;
 }
+
+// Export storage keys for use in other components
+export { STORAGE_KEYS };
