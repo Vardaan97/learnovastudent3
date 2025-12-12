@@ -29,6 +29,7 @@ import {
   getFeaturesForTier,
   getContrastColor,
 } from '@/lib/config/company-presets';
+import { companyService, isSupabaseConfigured } from '@/lib/supabase';
 
 // ============================================================================
 // TYPES
@@ -154,6 +155,37 @@ interface CompanyProviderProps {
   companySlug?: string;
 }
 
+// Helper to extract company slug from subdomain
+function getCompanySlugFromUrl(): string | null {
+  if (typeof window === 'undefined') return null;
+
+  const hostname = window.location.hostname;
+
+  // Check for subdomain pattern: {slug}.learnova.training or {slug}.localhost
+  const parts = hostname.split('.');
+
+  // Handle localhost (e.g., rayontara.localhost:3000)
+  if (hostname.includes('localhost')) {
+    if (parts.length > 1 && parts[0] !== 'localhost' && parts[0] !== 'www') {
+      return parts[0];
+    }
+    // Also check URL params for localhost testing
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('company');
+  }
+
+  // Handle production domains like rayontara.learnova.training
+  if (hostname.includes('learnova.training')) {
+    if (parts.length >= 3 && parts[0] !== 'www' && parts[0] !== 'student' && parts[0] !== 'tc') {
+      return parts[0];
+    }
+  }
+
+  // Check URL params as fallback
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get('company');
+}
+
 export function CompanyProvider({
   children,
   initialCompany = PWC_COMPANY,
@@ -169,12 +201,24 @@ export function CompanyProvider({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load company by slug
+  // Extract slug from subdomain or URL param
+  const [detectedSlug, setDetectedSlug] = useState<string | null>(null);
+
+  // Detect company slug from URL on mount
   useEffect(() => {
-    if (companySlug && companySlug !== company?.slug) {
-      loadCompany(companySlug);
+    const slug = companySlug || getCompanySlugFromUrl();
+    if (slug) {
+      setDetectedSlug(slug);
     }
   }, [companySlug]);
+
+  // Load company by slug
+  useEffect(() => {
+    const slugToLoad = detectedSlug || companySlug;
+    if (slugToLoad && slugToLoad !== company?.slug) {
+      loadCompany(slugToLoad);
+    }
+  }, [detectedSlug, companySlug]);
 
   // Apply CSS variables when branding changes
   useEffect(() => {
@@ -248,13 +292,48 @@ export function CompanyProvider({
     };
   }, [company?.slug]);
 
-  // Load company data from API or preset
+  // Load company data from Supabase, API, or preset
   const loadCompany = async (slug: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // First check if we have a preset for this company
+      // First try to load from Supabase (real database)
+      if (isSupabaseConfigured()) {
+        try {
+          const dbCompany = await companyService.getBySlug(slug);
+          if (dbCompany) {
+            const companyData: Company = {
+              id: dbCompany.id,
+              name: dbCompany.name,
+              slug: dbCompany.slug,
+              industry: dbCompany.industry || 'technology',
+              size: dbCompany.size || 'medium',
+              logo: dbCompany.logo_url || null,
+              favicon: dbCompany.favicon_url || null,
+              branding: dbCompany.branding || DEFAULT_BRANDING,
+              features: dbCompany.features || DEFAULT_FEATURES,
+              adminEmail: dbCompany.admin_email || '',
+              supportEmail: dbCompany.support_email || '',
+              subscriptionTier: dbCompany.subscription_tier || 'professional',
+              subscriptionStatus: dbCompany.subscription_status || 'trial',
+              trialEndsAt: dbCompany.trial_ends_at || null,
+              createdAt: dbCompany.created_at,
+              updatedAt: dbCompany.updated_at,
+              createdBy: 'system',
+            };
+            setCompany(companyData);
+            setBranding(companyData.branding);
+            setFeatures(companyData.features);
+            console.log('Company loaded from Supabase:', slug);
+            return;
+          }
+        } catch (dbError) {
+          console.warn('Failed to load from Supabase, trying fallbacks:', dbError);
+        }
+      }
+
+      // Check if we have a preset for this company
       const preset = getPresetById(slug);
       if (preset) {
         const companyData: Company = {
@@ -279,6 +358,7 @@ export function CompanyProvider({
         setCompany(companyData);
         setBranding(preset.branding);
         setFeatures(preset.features);
+        console.log('Company loaded from preset:', slug);
         return;
       }
 
