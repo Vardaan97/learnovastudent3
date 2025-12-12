@@ -225,15 +225,32 @@ function CompanyDashboard() {
     setShowCelebration(true);
   }, []);
 
-  const handleLessonClick = useCallback((lesson: Lesson, module: Module) => {
-    if (lesson.status === 'locked') {
-      showWIP('This lesson is locked. Complete the previous lessons first.');
-      return;
-    }
-    setCurrentLesson(lesson);
-    setCurrentModule(module);
-    setIsVideoOpen(true);
-  }, [showWIP]);
+  // Helper to find lesson and module by IDs
+  const findLessonAndModule = useCallback(
+    (lessonId: string, moduleId: string) => {
+      const module = modules.find((m) => m.id === moduleId);
+      const lesson = module?.lessons.find((l) => l.id === lessonId);
+      return { module, lesson };
+    },
+    [modules]
+  );
+
+  // Handle play lesson - matches ModuleList's onPlayLesson signature
+  const handlePlayLesson = useCallback(
+    (lessonId: string, moduleId: string) => {
+      const { module, lesson } = findLessonAndModule(lessonId, moduleId);
+      if (lesson && module) {
+        if (lesson.status === 'locked') {
+          showWIP('This lesson is locked. Complete the previous lessons first.');
+          return;
+        }
+        setCurrentLesson(lesson);
+        setCurrentModule(module);
+        setIsVideoOpen(true);
+      }
+    },
+    [findLessonAndModule, showWIP]
+  );
 
   const handleLessonComplete = useCallback(
     (lessonId: string) => {
@@ -306,70 +323,75 @@ function CompanyDashboard() {
     );
   }, []);
 
-  const handleQuizClick = useCallback((quiz: Quiz, moduleTitle: string) => {
-    if (quiz.status === 'locked') {
-      showWIP('Complete all lessons in this module to unlock the quiz.');
-      return;
-    }
-    setCurrentQuiz(quiz);
-    setQuizModuleTitle(moduleTitle);
-    setIsQuizOpen(true);
-  }, [showWIP]);
+  // Handle start quiz - matches ModuleList's onStartQuiz signature
+  const handleStartQuiz = useCallback(
+    (quizId: string, moduleId: string) => {
+      const module = modules.find((m) => m.id === moduleId);
+      if (module) {
+        if (module.quiz.status === 'locked') {
+          showWIP('Complete all lessons in this module to unlock the quiz.');
+          return;
+        }
+        setCurrentQuiz(module.quiz);
+        setQuizModuleTitle(`Module ${module.number}: ${module.title}`);
+        setIsQuizOpen(true);
+      }
+    },
+    [modules, showWIP]
+  );
 
-  const handleQuizComplete = useCallback(
-    (quizId: string, score: number, passed: boolean) => {
-      const xpEarned = passed ? 100 : 25;
-      addXP(xpEarned, passed ? 'Passed quiz' : 'Attempted quiz');
+  // Handle quiz close
+  const handleCloseQuiz = useCallback(() => {
+    setIsQuizOpen(false);
+    setCurrentQuiz(null);
+  }, []);
+
+  // Handle quiz submit - matches QuizModal's onSubmit signature
+  const handleQuizSubmit = useCallback(
+    (score: number, _answers: Record<string, string[]>) => {
+      const passed = score >= (currentQuiz?.passingScore || 70);
 
       if (passed) {
-        unlockAchievement('quiz_master');
+        addXP(50, 'Passed a quiz');
+        unlockAchievement('first_quiz');
+        if (score === 100) {
+          unlockAchievement('perfect_quiz');
+        }
       }
 
-      setModules((prevModules) => {
-        const moduleIndex = prevModules.findIndex((m) => m.quiz.id === quizId);
-        if (moduleIndex === -1) return prevModules;
+      setModules((prev) =>
+        prev.map((module, idx) => {
+          if (module.quiz.id === currentQuiz?.id) {
+            return {
+              ...module,
+              quiz: {
+                ...module.quiz,
+                status: passed ? 'passed' : 'failed',
+                bestScore: Math.max(module.quiz.bestScore || 0, score),
+              },
+              status: passed && module.progress === 100 ? 'completed' : module.status,
+            };
+          }
 
-        const newModules = [...prevModules];
-        const module = newModules[moduleIndex];
-
-        const newAttempt = {
-          id: `attempt-${Date.now()}`,
-          attemptNumber: module.quiz.attempts.length + 1,
-          score,
-          totalQuestions: module.quiz.totalQuestions,
-          correctAnswers: Math.round((score / 100) * module.quiz.totalQuestions),
-          startedAt: new Date().toISOString(),
-          completedAt: new Date().toISOString(),
-          timeSpent: '10:00',
-          passed,
-        };
-
-        newModules[moduleIndex] = {
-          ...module,
-          quiz: {
-            ...module.quiz,
-            status: passed ? 'passed' : 'failed',
-            bestScore: Math.max(module.quiz.bestScore || 0, score),
-            attempts: [...module.quiz.attempts, newAttempt],
-          },
-          status: passed ? 'completed' : module.status,
-        };
-
-        if (passed && moduleIndex < newModules.length - 1) {
-          const nextModule = newModules[moduleIndex + 1];
-          if (nextModule.status === 'locked') {
-            newModules[moduleIndex + 1] = {
-              ...nextModule,
+          // Unlock next module if current quiz passed
+          const prevModule = prev[idx - 1];
+          if (
+            prevModule?.quiz.id === currentQuiz?.id &&
+            passed &&
+            module.status === 'locked'
+          ) {
+            return {
+              ...module,
               status: 'not_started',
-              lessons: nextModule.lessons.map((l, idx) =>
-                idx === 0 ? { ...l, status: 'not_started' as const } : l
+              lessons: module.lessons.map((l, i) =>
+                i === 0 ? { ...l, status: 'not_started' as const } : l
               ),
             };
           }
-        }
 
-        return newModules;
-      });
+          return module;
+        })
+      );
 
       setProgress((prev) => ({
         ...prev,
@@ -378,62 +400,107 @@ function CompanyDashboard() {
       }));
 
       if (passed) {
-        triggerCelebration('quiz', xpEarned);
+        triggerCelebration('quiz', 50);
       }
-
-      setIsQuizOpen(false);
     },
-    [addXP, unlockAchievement, triggerCelebration]
+    [currentQuiz, addXP, unlockAchievement, triggerCelebration]
   );
 
-  const handleStartPractice = useCallback((moduleId: string) => {
-    const questions = getQuestionsFromModules([moduleId]);
-    if (questions.length === 0) {
-      showWIP('No practice questions available for this module yet.');
-      return;
+  // Handle review video from quiz
+  const handleReviewVideo = useCallback(() => {
+    handleCloseQuiz();
+    const module = modules.find((m) => m.quiz.id === currentQuiz?.id);
+    if (module && module.lessons[0]) {
+      handlePlayLesson(module.lessons[0].id, module.id);
     }
+  }, [modules, currentQuiz, handleCloseQuiz, handlePlayLesson]);
 
-    const module = qubitsModules.find((m) => m.id === moduleId);
-    setPracticeQuestions(questions);
-    setPracticeModuleTitle(module?.title || 'Practice Test');
-    setIsPracticeOpen(true);
-  }, [qubitsModules, showWIP]);
+  // Handle Qubits start test - matches QubitsSection's onStartTest signature
+  const handleQubitsStartTest = useCallback(
+    (moduleIds: string[], questionCounts: Record<string, number>) => {
+      const questions = getQuestionsFromModules(moduleIds, questionCounts);
+
+      if (questions.length === 0) {
+        showWIP('No practice questions available for the selected modules.');
+        return;
+      }
+
+      const selectedTitles = moduleIds
+        .map((id) => {
+          const mod = qubitsModules.find((m) => m.id === id);
+          return mod?.title;
+        })
+        .filter(Boolean)
+        .join(', ');
+
+      setPracticeQuestions(questions);
+      setPracticeModuleTitle(selectedTitles || 'Practice Test');
+      setIsPracticeOpen(true);
+    },
+    [qubitsModules, showWIP]
+  );
 
   const handlePracticeComplete = useCallback(
-    (score: number, totalQuestions: number) => {
+    (score: number, totalTime: number, results: { questionId: string; isCorrect: boolean }[]) => {
+      const totalQuestions = results.length;
+      const correctCount = results.filter((r) => r.isCorrect).length;
       const passed = score >= 70;
-      const xpEarned = passed ? 50 : 15;
-      addXP(xpEarned, 'Qubits practice');
+
+      // Award XP based on performance
+      addXP(Math.round(score / 4), 'Completed practice test');
+
+      setQubitsDashboard((prev) => {
+        const newTotalAttempted = prev.totalQuestionsAttempted + totalQuestions;
+        const prevCorrect = Math.round((prev.overallAccuracy / 100) * prev.totalQuestionsAttempted);
+        const newTotalCorrect = prevCorrect + correctCount;
+        const newAccuracy = newTotalAttempted > 0 ? Math.round((newTotalCorrect / newTotalAttempted) * 100) : 0;
+
+        const timeMatch = prev.timeSpent.match(/(\d+)h\s*(\d+)?m?/);
+        const prevHours = timeMatch ? parseInt(timeMatch[1]) : 0;
+        const prevMins = timeMatch && timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+        const prevTotalMins = prevHours * 60 + prevMins;
+        const newTotalMins = prevTotalMins + Math.round(totalTime / 60);
+        const newHours = Math.floor(newTotalMins / 60);
+        const newMins = newTotalMins % 60;
+        const newTimeSpent = newMins > 0 ? `${newHours}h ${newMins}m` : `${newHours}h`;
+
+        return {
+          ...prev,
+          totalQuizzes: prev.totalQuizzes + 1,
+          totalQuestionsAttempted: newTotalAttempted,
+          overallAccuracy: newAccuracy,
+          timeSpent: newTimeSpent,
+          streak: passed ? prev.streak + 1 : 0,
+          lastPracticeDate: new Date().toISOString(),
+        };
+      });
 
       setQubitsModules((prev) =>
-        prev.map((module) => {
-          if (module.title === practiceModuleTitle) {
-            const newAttempts = module.attempts + 1;
-            const newBestScore = Math.max(module.bestScore, score);
-            return {
-              ...module,
-              attempts: newAttempts,
-              bestScore: newBestScore,
-              lastAttempt: new Date().toISOString(),
-              status: passed ? 'mastered' : score >= 50 ? 'reviewing' : 'learning',
-            };
-          }
-          return module;
+        prev.map((mod) => {
+          const modulePrefix = mod.id.replace('qubits-', 'qb');
+          const moduleQuestions = results.filter((r) => r.questionId.startsWith(modulePrefix));
+
+          if (moduleQuestions.length === 0) return mod;
+
+          const moduleCorrect = moduleQuestions.filter((r) => r.isCorrect).length;
+          const newAttempted = mod.attemptedQuestions + moduleQuestions.length;
+          const newCorrect = mod.correctAnswers + moduleCorrect;
+          const newAccuracy = newAttempted > 0 ? Math.round((newCorrect / newAttempted) * 100) : 0;
+
+          return {
+            ...mod,
+            attemptedQuestions: newAttempted,
+            correctAnswers: newCorrect,
+            incorrectAnswers: mod.incorrectAnswers + (moduleQuestions.length - moduleCorrect),
+            unattempted: Math.max(0, mod.totalQuestions - newAttempted),
+            accuracy: newAccuracy,
+          };
         })
       );
 
-      setQubitsDashboard((prev) => ({
-        ...prev,
-        totalAttempts: prev.totalAttempts + 1,
-        questionsAnswered: prev.questionsAnswered + totalQuestions,
-        correctAnswers: prev.correctAnswers + Math.round((score / 100) * totalQuestions),
-        currentStreak: passed ? prev.currentStreak + 1 : 0,
-        longestStreak: passed ? Math.max(prev.longestStreak, prev.currentStreak + 1) : prev.longestStreak,
-      }));
-
       setIsPracticeOpen(false);
     },
-    [practiceModuleTitle, addXP]
+    [addXP]
   );
 
   const handleQubitsReset = useCallback(() => {
@@ -498,12 +565,7 @@ function CompanyDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Celebration Overlay */}
-      <CelebrationOverlay
-        isVisible={showCelebration}
-        type={celebrationType}
-        xpEarned={celebrationXP}
-        onComplete={() => setShowCelebration(false)}
-      />
+      <CelebrationOverlay />
 
       {/* Company Branded Header Bar */}
       {isCustomBranded && (
@@ -570,7 +632,7 @@ function CompanyDashboard() {
               </button>
 
               {/* Tour Launcher */}
-              <TourLauncherButton />
+              <TourLauncherButton onClick={startTour} />
             </div>
           </div>
         </div>
@@ -587,7 +649,7 @@ function CompanyDashboard() {
             <TabNavigation
               activeTab={activeTab}
               onTabChange={setActiveTab}
-              moduleCount={modules.length}
+              certificateEarned={progress.certificateEarned}
             />
 
             {/* Tab Content */}
@@ -595,8 +657,8 @@ function CompanyDashboard() {
               {activeTab === 'course' && (
                 <ModuleList
                   modules={modules}
-                  onLessonClick={handleLessonClick}
-                  onQuizClick={handleQuizClick}
+                  onPlayLesson={handlePlayLesson}
+                  onStartQuiz={handleStartQuiz}
                 />
               )}
 
@@ -604,7 +666,7 @@ function CompanyDashboard() {
                 <QubitsSection
                   modules={qubitsModules}
                   dashboard={qubitsDashboard}
-                  onStartPractice={handleStartPractice}
+                  onStartTest={handleQubitsStartTest}
                   onReset={handleQubitsReset}
                 />
               )}
@@ -614,7 +676,7 @@ function CompanyDashboard() {
               )}
 
               {activeTab === 'support' && (
-                <SupportSection trainer={trainer} course={course} />
+                <SupportSection trainer={trainer} />
               )}
 
               {activeTab === 'certificate' && (
@@ -629,22 +691,7 @@ function CompanyDashboard() {
 
           {/* Sidebar */}
           <div className="hidden lg:block w-80 flex-shrink-0" data-tour="progress-sidebar">
-            <ProgressSidebar
-              progress={progress}
-              modules={modules}
-              course={course}
-              onContinue={() => {
-                const inProgressModule = modules.find((m) => m.status === 'in_progress');
-                if (inProgressModule) {
-                  const inProgressLesson = inProgressModule.lessons.find(
-                    (l) => l.status === 'in_progress' || l.status === 'not_started'
-                  );
-                  if (inProgressLesson) {
-                    handleLessonClick(inProgressLesson, inProgressModule);
-                  }
-                }
-              }}
-            />
+            <ProgressSidebar progress={progress} qubitsDashboard={qubitsDashboard} />
           </div>
         </div>
 
@@ -709,10 +756,11 @@ function CompanyDashboard() {
       {/* Quiz Modal */}
       <QuizModal
         isOpen={isQuizOpen}
-        onClose={() => setIsQuizOpen(false)}
+        onClose={handleCloseQuiz}
         quiz={currentQuiz!}
         moduleTitle={quizModuleTitle}
-        onComplete={handleQuizComplete}
+        onSubmit={handleQuizSubmit}
+        onReviewVideo={handleReviewVideo}
       />
 
       {/* Qubits Practice Modal */}
@@ -724,75 +772,50 @@ function CompanyDashboard() {
         onComplete={handlePracticeComplete}
       />
 
-      {/* Feature Panels */}
+      {/* Feature Modals */}
       <AIStudyAssistant
         isOpen={isAIAssistantOpen}
         onClose={() => setIsAIAssistantOpen(false)}
-        currentModule={modules.find((m) => m.status === 'in_progress')}
-        courseName={course.name}
       />
 
       <BookmarksNotesPanel
         isOpen={isBookmarksOpen}
         onClose={() => setIsBookmarksOpen(false)}
-        modules={modules}
       />
 
       <FocusMode
         isOpen={isFocusModeOpen}
         onClose={() => setIsFocusModeOpen(false)}
-        onComplete={(minutes) => {
-          addXP(minutes * 2, 'Focus session');
-          showWIP(`Great focus session! You earned ${minutes * 2} XP for ${minutes} minutes of focused study.`);
-        }}
       />
 
       <SocialHub
         isOpen={isSocialHubOpen}
         onClose={() => setIsSocialHubOpen(false)}
-        learner={learnerProfile}
-        courseName={course.name}
       />
 
       <AnalyticsDashboard
         isOpen={isAnalyticsOpen}
         onClose={() => setIsAnalyticsOpen(false)}
-        progress={progress}
-        modules={modules}
-        qubitsData={qubitsDashboard}
       />
 
       <StudyCalendar
         isOpen={isCalendarOpen}
         onClose={() => setIsCalendarOpen(false)}
-        modules={modules}
-        progress={progress}
       />
 
       <SpacedRepetition
         isOpen={isSpacedRepOpen}
         onClose={() => setIsSpacedRepOpen(false)}
-        modules={modules}
-        onComplete={(correct, total) => {
-          const xpEarned = correct * 5;
-          addXP(xpEarned, 'Flashcard practice');
-          showWIP(`Flashcard session complete! ${correct}/${total} correct. Earned ${xpEarned} XP.`);
-        }}
       />
 
       <MindMap
         isOpen={isMindMapOpen}
         onClose={() => setIsMindMapOpen(false)}
-        modules={modules}
-        courseName={course.name}
       />
 
       <ExamPrep
         isOpen={isExamPrepOpen}
         onClose={() => setIsExamPrepOpen(false)}
-        course={course}
-        progress={progress}
-        modules={modules}
       />
 
       {/* Keyboard Shortcuts Modal */}
