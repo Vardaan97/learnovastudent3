@@ -238,7 +238,7 @@ function CompanyDashboard() {
   const handleLessonComplete = useCallback(
     (lessonId: string) => {
       const xpEarned = 25;
-      addXP(xpEarned);
+      addXP(xpEarned, 'Completed lesson');
 
       setModules((prevModules) =>
         prevModules.map((module) => {
@@ -319,7 +319,7 @@ function CompanyDashboard() {
   const handleQuizComplete = useCallback(
     (quizId: string, score: number, passed: boolean) => {
       const xpEarned = passed ? 100 : 25;
-      addXP(xpEarned);
+      addXP(xpEarned, passed ? 'Passed quiz' : 'Attempted quiz');
 
       if (passed) {
         unlockAchievement('quiz_master');
@@ -403,7 +403,7 @@ function CompanyDashboard() {
     (score: number, totalQuestions: number) => {
       const passed = score >= 70;
       const xpEarned = passed ? 50 : 15;
-      addXP(xpEarned);
+      addXP(xpEarned, 'Qubits practice');
 
       setQubitsModules((prev) =>
         prev.map((module) => {
@@ -742,7 +742,7 @@ function CompanyDashboard() {
         isOpen={isFocusModeOpen}
         onClose={() => setIsFocusModeOpen(false)}
         onComplete={(minutes) => {
-          addXP(minutes * 2);
+          addXP(minutes * 2, 'Focus session');
           showWIP(`Great focus session! You earned ${minutes * 2} XP for ${minutes} minutes of focused study.`);
         }}
       />
@@ -775,7 +775,7 @@ function CompanyDashboard() {
         modules={modules}
         onComplete={(correct, total) => {
           const xpEarned = correct * 5;
-          addXP(xpEarned);
+          addXP(xpEarned, 'Flashcard practice');
           showWIP(`Flashcard session complete! ${correct}/${total} correct. Earned ${xpEarned} XP.`);
         }}
       />
