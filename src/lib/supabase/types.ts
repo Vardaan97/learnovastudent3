@@ -654,6 +654,258 @@ export interface Database {
           updated_at?: string;
         };
       };
+      // ========================================
+      // V2 OPTIMIZED TABLES (External Media)
+      // ========================================
+      media_references: {
+        Row: {
+          id: string;
+          title: string;
+          description: string;
+          media_type: 'video' | 'document' | 'image' | 'audio' | 'presentation';
+          provider: 'youtube' | 'vimeo' | 's3' | 'google_drive' | 'onedrive' | 'external_url';
+          external_id: string | null;
+          external_url: string;
+          duration_seconds: number | null;
+          file_size_bytes: number | null;
+          mime_type: string | null;
+          thumbnail_url: string | null;
+          course_id: string | null;
+          module_id: string | null;
+          lesson_id: string | null;
+          is_public: boolean;
+          requires_auth: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          description?: string;
+          media_type: 'video' | 'document' | 'image' | 'audio' | 'presentation';
+          provider: 'youtube' | 'vimeo' | 's3' | 'google_drive' | 'onedrive' | 'external_url';
+          external_id?: string | null;
+          external_url: string;
+          duration_seconds?: number | null;
+          file_size_bytes?: number | null;
+          mime_type?: string | null;
+          thumbnail_url?: string | null;
+          course_id?: string | null;
+          module_id?: string | null;
+          lesson_id?: string | null;
+          is_public?: boolean;
+          requires_auth?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          description?: string;
+          media_type?: 'video' | 'document' | 'image' | 'audio' | 'presentation';
+          provider?: 'youtube' | 'vimeo' | 's3' | 'google_drive' | 'onedrive' | 'external_url';
+          external_id?: string | null;
+          external_url?: string;
+          duration_seconds?: number | null;
+          thumbnail_url?: string | null;
+          updated_at?: string;
+        };
+      };
+      question_bank: {
+        Row: {
+          id: string;
+          question_text: string;
+          question_type: 'single_choice' | 'multiple_choice' | 'true_false' | 'fill_blank' | 'ordering';
+          options: Json;
+          correct_answer_ids: string[];
+          explanation: string | null;
+          course_code: string | null;
+          topic: string | null;
+          subtopic: string | null;
+          difficulty: 'easy' | 'medium' | 'hard' | 'expert';
+          tags: string[];
+          source: string | null;
+          source_reference: string | null;
+          points: number;
+          negative_marking: number;
+          status: 'active' | 'draft' | 'archived' | 'deprecated';
+          image_url: string | null;
+          created_by: string | null;
+          reviewed_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          question_text: string;
+          question_type?: 'single_choice' | 'multiple_choice' | 'true_false' | 'fill_blank' | 'ordering';
+          options?: Json;
+          correct_answer_ids: string[];
+          explanation?: string | null;
+          course_code?: string | null;
+          topic?: string | null;
+          subtopic?: string | null;
+          difficulty?: 'easy' | 'medium' | 'hard' | 'expert';
+          tags?: string[];
+          source?: string | null;
+          source_reference?: string | null;
+          points?: number;
+          negative_marking?: number;
+          status?: 'active' | 'draft' | 'archived' | 'deprecated';
+          image_url?: string | null;
+          created_by?: string | null;
+          reviewed_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          question_text?: string;
+          question_type?: 'single_choice' | 'multiple_choice' | 'true_false' | 'fill_blank' | 'ordering';
+          options?: Json;
+          correct_answer_ids?: string[];
+          explanation?: string | null;
+          course_code?: string | null;
+          topic?: string | null;
+          subtopic?: string | null;
+          difficulty?: 'easy' | 'medium' | 'hard' | 'expert';
+          tags?: string[];
+          status?: 'active' | 'draft' | 'archived' | 'deprecated';
+          reviewed_by?: string | null;
+          updated_at?: string;
+        };
+      };
+      content_uploads: {
+        Row: {
+          id: string;
+          upload_type: 'course_structure' | 'questions' | 'videos' | 'resources';
+          file_name: string;
+          file_format: 'csv' | 'json' | 'xlsx' | 'yaml';
+          status: 'pending' | 'processing' | 'completed' | 'failed' | 'partial';
+          total_items: number;
+          processed_items: number;
+          failed_items: number;
+          error_log: Json;
+          created_records: Json;
+          target_course_id: string | null;
+          target_module_id: string | null;
+          uploaded_by: string;
+          uploaded_at: string;
+          processed_at: string | null;
+          metadata: Json;
+        };
+        Insert: {
+          id?: string;
+          upload_type: 'course_structure' | 'questions' | 'videos' | 'resources';
+          file_name: string;
+          file_format: 'csv' | 'json' | 'xlsx' | 'yaml';
+          status?: 'pending' | 'processing' | 'completed' | 'failed' | 'partial';
+          total_items?: number;
+          processed_items?: number;
+          failed_items?: number;
+          error_log?: Json;
+          created_records?: Json;
+          target_course_id?: string | null;
+          target_module_id?: string | null;
+          uploaded_by: string;
+          uploaded_at?: string;
+          processed_at?: string | null;
+          metadata?: Json;
+        };
+        Update: {
+          status?: 'pending' | 'processing' | 'completed' | 'failed' | 'partial';
+          processed_items?: number;
+          failed_items?: number;
+          error_log?: Json;
+          created_records?: Json;
+          processed_at?: string | null;
+        };
+      };
+      delivery_managers: {
+        Row: {
+          id: string;
+          user_id: string;
+          can_upload_courses: boolean;
+          can_upload_questions: boolean;
+          can_upload_media: boolean;
+          can_manage_all_courses: boolean;
+          assigned_course_codes: string[];
+          total_uploads: number;
+          last_upload_at: string | null;
+          status: 'active' | 'inactive';
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          can_upload_courses?: boolean;
+          can_upload_questions?: boolean;
+          can_upload_media?: boolean;
+          can_manage_all_courses?: boolean;
+          assigned_course_codes?: string[];
+          total_uploads?: number;
+          last_upload_at?: string | null;
+          status?: 'active' | 'inactive';
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          can_upload_courses?: boolean;
+          can_upload_questions?: boolean;
+          can_upload_media?: boolean;
+          can_manage_all_courses?: boolean;
+          assigned_course_codes?: string[];
+          total_uploads?: number;
+          last_upload_at?: string | null;
+          status?: 'active' | 'inactive';
+          updated_at?: string;
+        };
+      };
+      external_resources: {
+        Row: {
+          id: string;
+          title: string;
+          description: string;
+          resource_type: 'link' | 'pdf' | 'video' | 'tool' | 'documentation';
+          url: string;
+          course_id: string | null;
+          module_id: string | null;
+          lesson_id: string | null;
+          icon: string | null;
+          sort_order: number;
+          is_featured: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          description?: string;
+          resource_type?: 'link' | 'pdf' | 'video' | 'tool' | 'documentation';
+          url: string;
+          course_id?: string | null;
+          module_id?: string | null;
+          lesson_id?: string | null;
+          icon?: string | null;
+          sort_order?: number;
+          is_featured?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          description?: string;
+          resource_type?: 'link' | 'pdf' | 'video' | 'tool' | 'documentation';
+          url?: string;
+          icon?: string | null;
+          sort_order?: number;
+          is_featured?: boolean;
+          updated_at?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;
@@ -688,3 +940,10 @@ export type Achievement = Tables<'achievements'>;
 export type UserAchievement = Tables<'user_achievements'>;
 export type AuditLog = Tables<'audit_logs'>;
 export type PortalAccess = Tables<'portal_access'>;
+
+// V2 Optimized Tables (External Media & Delivery Manager)
+export type MediaReference = Tables<'media_references'>;
+export type QuestionBank = Tables<'question_bank'>;
+export type ContentUpload = Tables<'content_uploads'>;
+export type DeliveryManager = Tables<'delivery_managers'>;
+export type ExternalResource = Tables<'external_resources'>;

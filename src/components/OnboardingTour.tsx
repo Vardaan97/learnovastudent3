@@ -314,14 +314,16 @@ export default function OnboardingTour({
   const step = TOUR_STEPS[currentStep];
   const progress = ((currentStep + 1) / TOUR_STEPS.length) * 100;
 
-  // Find and highlight target element
+  // Find and highlight target element with smart positioning
   const updateSpotlight = useCallback(() => {
     if (!step || step.position === 'center') {
       setSpotlightRect(null);
-      // Center the tooltip
+      // Center the tooltip with responsive sizing
+      const tooltipWidth = Math.min(440, window.innerWidth - 48);
+      const tooltipHeight = 320;
       setTooltipPosition({
-        top: window.innerHeight / 2 - 180,
-        left: window.innerWidth / 2 - 220,
+        top: Math.max(24, window.innerHeight / 2 - tooltipHeight / 2),
+        left: Math.max(24, window.innerWidth / 2 - tooltipWidth / 2),
       });
       return;
     }
@@ -341,46 +343,92 @@ export default function OnboardingTour({
     const rect = element.getBoundingClientRect();
     const padding = step.spotlightPadding || 8;
 
+    // Calculate spotlight rect, ensuring it stays within viewport
+    const spotlightX = Math.max(0, rect.x - padding);
+    const spotlightY = Math.max(0, rect.y - padding);
+    const spotlightWidth = Math.min(rect.width + padding * 2, window.innerWidth - spotlightX);
+    const spotlightHeight = Math.min(rect.height + padding * 2, window.innerHeight - spotlightY);
+
     setSpotlightRect(new DOMRect(
-      rect.x - padding,
-      rect.y - padding,
-      rect.width + padding * 2,
-      rect.height + padding * 2
+      spotlightX,
+      spotlightY,
+      spotlightWidth,
+      spotlightHeight
     ));
 
-    // Scroll element into view
-    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Scroll element into view with better positioning
+    element.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
 
-    // Calculate tooltip position
-    const tooltipWidth = 440;
-    const tooltipHeight = 280;
-    const margin = 24;
+    // Calculate tooltip position with smart repositioning
+    const tooltipWidth = Math.min(440, window.innerWidth - 48);
+    const tooltipHeight = 320; // Slightly larger for better content fit
+    const margin = 16;
+    const safeMargin = 24; // Minimum distance from viewport edges
 
     let top = 0;
     let left = 0;
 
+    // First, try the preferred position
     switch (step.position) {
       case 'top':
         top = rect.top - tooltipHeight - margin;
         left = rect.left + rect.width / 2 - tooltipWidth / 2;
+        // If not enough space at top, try bottom
+        if (top < safeMargin) {
+          top = rect.bottom + margin;
+        }
         break;
       case 'bottom':
         top = rect.bottom + margin;
         left = rect.left + rect.width / 2 - tooltipWidth / 2;
+        // If not enough space at bottom, try top
+        if (top + tooltipHeight > window.innerHeight - safeMargin) {
+          top = rect.top - tooltipHeight - margin;
+        }
         break;
       case 'left':
         top = rect.top + rect.height / 2 - tooltipHeight / 2;
         left = rect.left - tooltipWidth - margin;
+        // If not enough space on left, try right
+        if (left < safeMargin) {
+          left = rect.right + margin;
+        }
         break;
       case 'right':
         top = rect.top + rect.height / 2 - tooltipHeight / 2;
         left = rect.right + margin;
+        // If not enough space on right, try left
+        if (left + tooltipWidth > window.innerWidth - safeMargin) {
+          left = rect.left - tooltipWidth - margin;
+        }
         break;
     }
 
-    // Keep tooltip within viewport
-    top = Math.max(margin, Math.min(top, window.innerHeight - tooltipHeight - margin));
-    left = Math.max(margin, Math.min(left, window.innerWidth - tooltipWidth - margin));
+    // Final boundary checks - ensure tooltip stays within viewport
+    // Vertical bounds
+    if (top < safeMargin) {
+      top = safeMargin;
+    } else if (top + tooltipHeight > window.innerHeight - safeMargin) {
+      top = window.innerHeight - tooltipHeight - safeMargin;
+    }
+
+    // Horizontal bounds
+    if (left < safeMargin) {
+      left = safeMargin;
+    } else if (left + tooltipWidth > window.innerWidth - safeMargin) {
+      left = window.innerWidth - tooltipWidth - safeMargin;
+    }
+
+    // For very small screens or elements near edges, center the tooltip
+    if (window.innerWidth < 600) {
+      left = Math.max(safeMargin, (window.innerWidth - tooltipWidth) / 2);
+      // Position tooltip above or below based on element position
+      if (rect.top > window.innerHeight / 2) {
+        top = Math.max(safeMargin, rect.top - tooltipHeight - margin);
+      } else {
+        top = Math.min(window.innerHeight - tooltipHeight - safeMargin, rect.bottom + margin);
+      }
+    }
 
     setTooltipPosition({ top, left });
   }, [step]);
@@ -503,7 +551,7 @@ export default function OnboardingTour({
       {/* Tooltip with Mascot */}
       <div
         ref={tooltipRef}
-        className={`absolute bg-white rounded-2xl shadow-2xl w-[440px] transition-all duration-500 ${isAnimating ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}
+        className={`absolute bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[440px] transition-all duration-500 ${isAnimating ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}
         style={{
           top: tooltipPosition.top,
           left: tooltipPosition.left,
@@ -517,13 +565,18 @@ export default function OnboardingTour({
           />
         </div>
 
-        {/* Mascot floating on the side */}
-        <div className="absolute -left-16 top-1/2 transform -translate-y-1/2">
+        {/* Mascot floating on the side - hidden on small screens to prevent overflow */}
+        <div className="absolute -left-16 top-1/2 transform -translate-y-1/2 hidden md:block">
           <KoenigMascot mood={step.mascotMood || 'happy'} size="large" />
         </div>
 
+        {/* Mascot inside tooltip for small screens */}
+        <div className="flex justify-center pt-4 md:hidden">
+          <KoenigMascot mood={step.mascotMood || 'happy'} size="medium" />
+        </div>
+
         {/* Content */}
-        <div className="p-6 pl-8">
+        <div className="p-4 md:p-6 md:pl-8">
           {/* Category badge */}
           {step.category && (
             <div className="mb-3">
