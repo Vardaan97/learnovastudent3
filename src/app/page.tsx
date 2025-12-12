@@ -747,14 +747,26 @@ function LearnerDashboard() {
                 Share My Progress
               </button>
 
-              {/* Help / Tour Button */}
+              {/* Help / Tour Button with Koey Mascot */}
               <button
                 onClick={() => startTour()}
-                className="w-full mt-4 flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-xl hover:from-violet-600 hover:to-purple-600 transition-colors"
+                className="w-full mt-4 flex items-center justify-center gap-3 py-3 bg-gradient-to-r from-cyan-500 via-blue-500 to-violet-500 text-white rounded-xl hover:from-cyan-600 hover:via-blue-600 hover:to-violet-600 transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] group"
                 data-tour="tour-button"
               >
-                <HelpCircle className="w-4 h-4" />
-                Take Guided Tour
+                {/* Mini Koey mascot */}
+                <div className="w-7 h-7 relative">
+                  <svg viewBox="0 0 100 100" className="w-full h-full group-hover:animate-bounce">
+                    <circle cx="50" cy="40" r="28" fill="white" />
+                    <circle cx="38" cy="38" r="5" fill="#06b6d4" />
+                    <circle cx="62" cy="38" r="5" fill="#06b6d4" />
+                    <circle cx="40" cy="36" r="2" fill="white" />
+                    <circle cx="64" cy="36" r="2" fill="white" />
+                    <path d="M45 50 L50 58 L55 50 Z" fill="#f59e0b" />
+                    <path d="M25 22 L50 12 L75 22 L50 32 Z" fill="#1e3a5f" />
+                  </svg>
+                </div>
+                <span className="font-medium">Tour with Koey</span>
+                <HelpCircle className="w-4 h-4 opacity-70" />
               </button>
 
               {/* Keyboard Shortcuts */}

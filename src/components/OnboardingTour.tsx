@@ -1,23 +1,126 @@
 'use client';
 
 /**
- * Onboarding Tour Component
- * =========================
+ * Onboarding Tour Component with Koenig Mascot
+ * =============================================
  *
- * Interactive guided tour for new users and client demos.
+ * Interactive guided tour for new users featuring "Koey" the Koenig mascot.
  * Highlights key features and explains how to use the portal.
  *
  * FEATURES:
+ * - Koenig mascot "Koey" guides users through the dashboard
  * - Step-by-step walkthrough of all sections
  * - Spotlight highlighting on UI elements
  * - Skip, next, previous navigation
  * - Progress indicator
  * - Keyboard navigation (arrow keys, Esc)
  * - Auto-scroll to elements
- * - Demo mode for sales presentations
+ * - Persists completion state in localStorage
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+
+// ============================================================================
+// KOENIG MASCOT COMPONENT - "Koey"
+// ============================================================================
+
+interface MascotProps {
+  mood: 'wave' | 'point' | 'celebrate' | 'think' | 'happy';
+  size?: 'small' | 'medium' | 'large';
+}
+
+function KoenigMascot({ mood, size = 'medium' }: MascotProps) {
+  const sizeClasses = {
+    small: 'w-12 h-12',
+    medium: 'w-20 h-20',
+    large: 'w-28 h-28',
+  };
+
+  // SVG mascot - A friendly owl with Koenig branding (cyan/blue colors)
+  return (
+    <div className={`${sizeClasses[size]} relative`}>
+      <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-lg">
+        {/* Body */}
+        <ellipse cx="50" cy="60" rx="35" ry="30" fill="url(#bodyGradient)" />
+
+        {/* Head */}
+        <circle cx="50" cy="35" r="28" fill="url(#headGradient)" />
+
+        {/* Ears/Tufts */}
+        <path d="M25 20 L30 35 L20 30 Z" fill="#06b6d4" />
+        <path d="M75 20 L70 35 L80 30 Z" fill="#06b6d4" />
+
+        {/* Eyes */}
+        <ellipse cx="38" cy="35" rx="10" ry="11" fill="white" />
+        <ellipse cx="62" cy="35" rx="10" ry="11" fill="white" />
+
+        {/* Pupils - animated based on mood */}
+        <circle cx={mood === 'point' ? '40' : '38'} cy="36" r="5" fill="#1e3a5f" />
+        <circle cx={mood === 'point' ? '64' : '62'} cy="36" r="5" fill="#1e3a5f" />
+
+        {/* Eye shine */}
+        <circle cx="40" cy="34" r="2" fill="white" opacity="0.8" />
+        <circle cx="64" cy="34" r="2" fill="white" opacity="0.8" />
+
+        {/* Beak */}
+        <path d="M45 45 L50 55 L55 45 Z" fill="#f59e0b" />
+
+        {/* Belly patch */}
+        <ellipse cx="50" cy="65" rx="20" ry="18" fill="#e0f2fe" />
+
+        {/* Wings */}
+        {mood === 'wave' ? (
+          <>
+            <path d="M15 55 Q5 45 15 35 Q20 45 20 55 Z" fill="#0891b2" className="animate-bounce" style={{ transformOrigin: '15px 55px', animation: 'wave 0.5s ease-in-out infinite' }} />
+            <path d="M85 50 Q95 50 85 65 Q80 55 80 50 Z" fill="#0891b2" />
+          </>
+        ) : mood === 'celebrate' ? (
+          <>
+            <path d="M12 40 Q2 35 15 25 Q20 40 20 50 Z" fill="#0891b2" className="animate-bounce" />
+            <path d="M88 40 Q98 35 85 25 Q80 40 80 50 Z" fill="#0891b2" className="animate-bounce" />
+          </>
+        ) : (
+          <>
+            <path d="M15 55 Q5 55 15 70 Q20 60 20 55 Z" fill="#0891b2" />
+            <path d="M85 55 Q95 55 85 70 Q80 60 80 55 Z" fill="#0891b2" />
+          </>
+        )}
+
+        {/* Feet */}
+        <ellipse cx="40" cy="88" rx="8" ry="4" fill="#f59e0b" />
+        <ellipse cx="60" cy="88" rx="8" ry="4" fill="#f59e0b" />
+
+        {/* Graduation cap for learning theme */}
+        <path d="M25 18 L50 8 L75 18 L50 28 Z" fill="#1e3a5f" />
+        <rect x="48" y="8" width="4" height="15" fill="#1e3a5f" />
+        <circle cx="50" cy="8" r="3" fill="#f59e0b" />
+        <path d="M50 8 Q60 5 65 10" stroke="#f59e0b" strokeWidth="2" fill="none" />
+        <circle cx="65" cy="10" r="2" fill="#f59e0b" />
+
+        {/* Gradients */}
+        <defs>
+          <linearGradient id="bodyGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#06b6d4" />
+            <stop offset="100%" stopColor="#0891b2" />
+          </linearGradient>
+          <linearGradient id="headGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#22d3ee" />
+            <stop offset="100%" stopColor="#06b6d4" />
+          </linearGradient>
+        </defs>
+      </svg>
+
+      {/* Sparkles for celebrate mood */}
+      {mood === 'celebrate' && (
+        <>
+          <span className="absolute -top-2 -left-2 text-yellow-400 animate-ping">✨</span>
+          <span className="absolute -top-2 -right-2 text-yellow-400 animate-ping" style={{ animationDelay: '0.2s' }}>✨</span>
+          <span className="absolute top-0 left-1/2 text-yellow-400 animate-ping" style={{ animationDelay: '0.4s' }}>⭐</span>
+        </>
+      )}
+    </div>
+  );
+}
 
 // ============================================================================
 // TYPES
@@ -30,6 +133,7 @@ export interface TourStep {
   content: string;
   position: 'top' | 'bottom' | 'left' | 'right' | 'center';
   spotlightPadding?: number;
+  mascotMood?: 'wave' | 'point' | 'celebrate' | 'think' | 'happy';
   action?: () => void;      // Optional action when step is shown
   waitForElement?: boolean; // Wait for element to exist
   category?: string;        // For grouping related steps
@@ -52,9 +156,10 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'welcome',
     target: 'body',
-    title: 'Welcome to Koenig Learning Portal! 🎉',
-    content: 'This quick tour will show you how to navigate the portal and make the most of your learning experience. Use arrow keys or click Next to continue.',
+    title: 'Welcome to Koenig Learning Portal! 🎓',
+    content: "Hi there! I'm Koey, your learning companion! I'll show you around the portal so you can make the most of your learning journey. Let's get started!",
     position: 'center',
+    mascotMood: 'wave',
     category: 'intro',
   },
 
@@ -62,10 +167,11 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'course-header',
     target: '[data-tour="course-header"]',
-    title: 'Your Current Course',
-    content: 'This shows your enrolled course with overall progress. The circular progress indicator updates as you complete lessons and quizzes.',
+    title: 'Your Course Dashboard',
+    content: "This is your course at a glance! You can see your overall progress with the circular indicator. It updates automatically as you complete lessons and quizzes.",
     position: 'bottom',
     spotlightPadding: 15,
+    mascotMood: 'point',
     category: 'courses',
   },
 
@@ -73,10 +179,11 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'tabs',
     target: '[data-tour="tabs"]',
-    title: 'Main Navigation Tabs',
-    content: 'Switch between Course content, Qubits practice tests, Resources, Support, and your Certificate. Each tab has specialized features.',
+    title: 'Navigation Made Easy',
+    content: "These tabs help you navigate between different sections: Course content for lessons, Qubits for practice tests, Resources for study materials, Support for help, and Certificate when you're done!",
     position: 'bottom',
     spotlightPadding: 10,
+    mascotMood: 'point',
     category: 'navigation',
   },
 
@@ -84,21 +191,23 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'modules',
     target: '[data-tour="modules"]',
-    title: 'Course Modules',
-    content: 'Your course is divided into modules. Click on any lesson to watch the video. Complete all lessons to unlock the module quiz!',
+    title: 'Course Modules & Lessons',
+    content: "Your course is organized into modules. Click any lesson to watch the video. Once you complete all lessons in a module, you'll unlock the quiz! 📚",
     position: 'right',
     spotlightPadding: 15,
+    mascotMood: 'happy',
     category: 'courses',
   },
 
-  // Quick Stats
+  // Quick Stats Bar
   {
     id: 'quick-stats',
     target: '[data-tour="quick-stats"]',
-    title: 'Quick Stats & Tools',
-    content: 'See your XP, level, and streak at a glance. Quick access to AI Assistant, Focus Mode, and Exam Prep are always available here.',
+    title: 'Quick Stats & Actions',
+    content: "Here you can see your XP, level, and learning streak! Plus quick access to AI Assistant, Focus Mode, and Exam Prep. These tools supercharge your learning!",
     position: 'bottom',
     spotlightPadding: 10,
+    mascotMood: 'think',
     category: 'tools',
   },
 
@@ -106,10 +215,11 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'progress-sidebar',
     target: '[data-tour="progress-sidebar"]',
-    title: 'Your Progress',
-    content: 'Track your overall progress, lessons completed, quizzes passed, and time spent learning. Your statistics update in real-time!',
+    title: 'Track Your Progress',
+    content: "This sidebar shows your complete learning stats - lessons completed, quizzes passed, time spent, and overall progress. Watch these numbers grow! 📊",
     position: 'left',
     spotlightPadding: 15,
+    mascotMood: 'happy',
     category: 'progress',
   },
 
@@ -117,10 +227,11 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'gamification',
     target: '[data-tour="gamification"]',
-    title: 'Gamification & Achievements',
-    content: 'Earn XP for every action! Complete daily challenges, unlock achievements, and level up. Keep your streak going for bonus XP!',
+    title: 'Earn XP & Achievements!',
+    content: "Learning is more fun with rewards! Earn XP for every action, complete daily challenges, unlock achievements, and maintain your streak for bonus rewards! 🏆",
     position: 'left',
     spotlightPadding: 15,
+    mascotMood: 'celebrate',
     category: 'gamification',
   },
 
@@ -128,21 +239,23 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'quick-tools',
     target: '[data-tour="quick-tools"]',
-    title: 'Quick Tools',
-    content: 'Access Bookmarks, Calendar, Flashcards, Mind Maps, Community, and Analytics. These tools enhance your learning experience.',
+    title: 'Powerful Learning Tools',
+    content: "Access Bookmarks to save important content, Calendar to plan your study schedule, Flashcards for quick revision, Mind Maps for visual learning, and Community to connect with others!",
     position: 'left',
     spotlightPadding: 10,
+    mascotMood: 'point',
     category: 'tools',
   },
 
-  // Share Progress
+  // Share Progress Button
   {
     id: 'share-progress',
     target: '[data-tour="share-progress"]',
-    title: 'Share Your Progress',
-    content: 'Celebrate your achievements! Share your progress on LinkedIn and social media to showcase your learning journey.',
+    title: 'Share Your Success!',
+    content: "Proud of your progress? Share it on LinkedIn and social media! Let the world know about your learning journey. 🚀",
     position: 'left',
     spotlightPadding: 10,
+    mascotMood: 'celebrate',
     category: 'social',
   },
 
@@ -150,10 +263,11 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'tour-button',
     target: '[data-tour="tour-button"]',
-    title: 'Take Guided Tour Anytime',
-    content: 'Need a refresher? Click this button anytime to restart the guided tour. Great for exploring new features!',
+    title: 'Need Help Anytime?',
+    content: "You can restart this guided tour anytime by clicking here. I'll always be here to help you navigate! 💡",
     position: 'left',
     spotlightPadding: 10,
+    mascotMood: 'wave',
     category: 'help',
   },
 
@@ -161,9 +275,10 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'keyboard-tip',
     target: 'body',
-    title: 'Pro Tips! ⌨️',
-    content: 'Press "?" for keyboard shortcuts. Use Ctrl+A for AI Assistant, Ctrl+B for Bookmarks, Ctrl+F for Focus Mode. Press Escape to close any panel.',
+    title: 'Pro Tips for Power Users! ⌨️',
+    content: 'Press "?" anytime to see keyboard shortcuts. Use Ctrl+A for AI Assistant, Ctrl+B for Bookmarks, Ctrl+F for Focus Mode. Press Escape to close any panel.',
     position: 'center',
+    mascotMood: 'think',
     category: 'tips',
   },
 
@@ -171,9 +286,10 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'tour-complete',
     target: 'body',
-    title: 'You\'re All Set! 🚀',
-    content: 'Start learning by clicking on any lesson. Complete quizzes to unlock achievements. Good luck with your certification journey!',
+    title: "You're All Set! 🎉",
+    content: "Great job! You now know your way around the portal. Start by clicking on any lesson to begin learning. I believe in you - let's ace that certification! Good luck! 🍀",
     position: 'center',
+    mascotMood: 'celebrate',
     category: 'outro',
   },
 ];
@@ -192,6 +308,7 @@ export default function OnboardingTour({
   const [currentStep, setCurrentStep] = useState(startFromStep);
   const [spotlightRect, setSpotlightRect] = useState<DOMRect | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
+  const [isAnimating, setIsAnimating] = useState(false);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
   const step = TOUR_STEPS[currentStep];
@@ -203,8 +320,8 @@ export default function OnboardingTour({
       setSpotlightRect(null);
       // Center the tooltip
       setTooltipPosition({
-        top: window.innerHeight / 2 - 150,
-        left: window.innerWidth / 2 - 200,
+        top: window.innerHeight / 2 - 180,
+        left: window.innerWidth / 2 - 220,
       });
       return;
     }
@@ -222,7 +339,7 @@ export default function OnboardingTour({
     }
 
     const rect = element.getBoundingClientRect();
-    const padding = step.spotlightPadding || 5;
+    const padding = step.spotlightPadding || 8;
 
     setSpotlightRect(new DOMRect(
       rect.x - padding,
@@ -235,9 +352,9 @@ export default function OnboardingTour({
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
     // Calculate tooltip position
-    const tooltipWidth = 380;
-    const tooltipHeight = 200;
-    const margin = 20;
+    const tooltipWidth = 440;
+    const tooltipHeight = 280;
+    const margin = 24;
 
     let top = 0;
     let left = 0;
@@ -270,11 +387,18 @@ export default function OnboardingTour({
 
   useEffect(() => {
     if (isOpen) {
-      updateSpotlight();
+      setIsAnimating(true);
+      const timer = setTimeout(() => {
+        updateSpotlight();
+        setIsAnimating(false);
+      }, 300);
+
       // Run step action if defined
       if (step?.action) {
         step.action();
       }
+
+      return () => clearTimeout(timer);
     }
   }, [isOpen, currentStep, updateSpotlight, step]);
 
@@ -328,22 +452,12 @@ export default function OnboardingTour({
     onClose();
   };
 
-  const handleJumpToCategory = (category: string) => {
-    const index = TOUR_STEPS.findIndex(s => s.category === category);
-    if (index >= 0) {
-      setCurrentStep(index);
-    }
-  };
-
   if (!isOpen || !step) return null;
-
-  // Get unique categories for quick navigation
-  const categories = [...new Set(TOUR_STEPS.map(s => s.category).filter(Boolean))];
 
   return (
     <div className="fixed inset-0 z-[10000]" role="dialog" aria-modal="true">
       {/* Overlay with spotlight cutout */}
-      <div className="absolute inset-0 transition-all duration-300">
+      <div className="absolute inset-0 transition-all duration-500">
         <svg className="absolute inset-0 w-full h-full">
           <defs>
             <mask id="spotlight-mask">
@@ -354,8 +468,9 @@ export default function OnboardingTour({
                   y={spotlightRect.y}
                   width={spotlightRect.width}
                   height={spotlightRect.height}
-                  rx="8"
+                  rx="12"
                   fill="black"
+                  className="transition-all duration-500"
                 />
               )}
             </mask>
@@ -365,129 +480,142 @@ export default function OnboardingTour({
             y="0"
             width="100%"
             height="100%"
-            fill="rgba(0, 0, 0, 0.75)"
+            fill="rgba(0, 0, 0, 0.8)"
             mask="url(#spotlight-mask)"
           />
         </svg>
 
-        {/* Spotlight border */}
+        {/* Spotlight border with glow */}
         {spotlightRect && (
           <div
-            className="absolute border-2 border-cyan-400 rounded-lg transition-all duration-300 animate-pulse"
+            className="absolute border-2 border-cyan-400 rounded-xl transition-all duration-500"
             style={{
               top: spotlightRect.y,
               left: spotlightRect.x,
               width: spotlightRect.width,
               height: spotlightRect.height,
+              boxShadow: '0 0 20px rgba(6, 182, 212, 0.5), 0 0 40px rgba(6, 182, 212, 0.3)',
             }}
           />
         )}
       </div>
 
-      {/* Tooltip */}
+      {/* Tooltip with Mascot */}
       <div
         ref={tooltipRef}
-        className="absolute bg-white rounded-xl shadow-2xl w-[380px] transition-all duration-300"
+        className={`absolute bg-white rounded-2xl shadow-2xl w-[440px] transition-all duration-500 ${isAnimating ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}
         style={{
           top: tooltipPosition.top,
           left: tooltipPosition.left,
         }}
       >
         {/* Progress bar */}
-        <div className="h-1 bg-gray-200 rounded-t-xl overflow-hidden">
+        <div className="h-1.5 bg-gray-100 rounded-t-2xl overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500"
+            className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-violet-500 transition-all duration-700"
             style={{ width: `${progress}%` }}
           />
         </div>
 
-        {/* Category indicator */}
-        {step.category && (
-          <div className="px-4 pt-3">
-            <span className="text-xs font-medium text-cyan-600 uppercase tracking-wide">
-              {step.category}
-            </span>
-          </div>
-        )}
-
-        {/* Content */}
-        <div className="p-4">
-          <h3 className="text-lg font-bold text-gray-900 mb-2">{step.title}</h3>
-          <p className="text-gray-600 text-sm leading-relaxed">{step.content}</p>
+        {/* Mascot floating on the side */}
+        <div className="absolute -left-16 top-1/2 transform -translate-y-1/2">
+          <KoenigMascot mood={step.mascotMood || 'happy'} size="large" />
         </div>
 
-        {/* Quick navigation (for demos) */}
-        {demoMode && (
-          <div className="px-4 pb-2 flex flex-wrap gap-1">
-            {categories.map(cat => (
+        {/* Content */}
+        <div className="p-6 pl-8">
+          {/* Category badge */}
+          {step.category && (
+            <div className="mb-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-cyan-50 to-blue-50 text-cyan-700 text-xs font-semibold uppercase tracking-wide rounded-full border border-cyan-200">
+                <span className="w-1.5 h-1.5 bg-cyan-500 rounded-full"></span>
+                {step.category}
+              </span>
+            </div>
+          )}
+
+          {/* Title */}
+          <h3 className="text-xl font-bold text-gray-900 mb-3">{step.title}</h3>
+
+          {/* Content with speech bubble style */}
+          <div className="relative bg-gray-50 rounded-xl p-4 mb-4 border border-gray-100">
+            <p className="text-gray-600 leading-relaxed">{step.content}</p>
+            {/* Speech bubble pointer */}
+            <div className="absolute -left-2 top-1/2 transform -translate-y-1/2 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-r-8 border-r-gray-50"></div>
+          </div>
+
+          {/* Step indicator dots */}
+          <div className="flex items-center justify-center gap-1.5 mb-4">
+            {TOUR_STEPS.map((_, idx) => (
               <button
-                key={cat}
-                onClick={() => handleJumpToCategory(cat!)}
-                className={`text-xs px-2 py-1 rounded-full transition-colors ${
-                  step.category === cat
-                    ? 'bg-cyan-100 text-cyan-700'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                key={idx}
+                onClick={() => setCurrentStep(idx)}
+                className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                  idx === currentStep
+                    ? 'w-6 bg-gradient-to-r from-cyan-500 to-blue-500'
+                    : idx < currentStep
+                      ? 'bg-cyan-300'
+                      : 'bg-gray-200'
                 }`}
-              >
-                {cat}
-              </button>
+                aria-label={`Go to step ${idx + 1}`}
+              />
             ))}
           </div>
-        )}
 
-        {/* Navigation */}
-        <div className="px-4 pb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">
-              {currentStep + 1} / {TOUR_STEPS.length}
-            </span>
-            <button
-              onClick={handleSkip}
-              className="text-xs text-gray-500 hover:text-gray-700 underline"
-            >
-              Skip tour
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {currentStep > 0 && (
+          {/* Navigation */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-500 font-medium">
+                {currentStep + 1} of {TOUR_STEPS.length}
+              </span>
               <button
-                onClick={handlePrevious}
-                className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 flex items-center gap-1"
+                onClick={handleSkip}
+                className="text-sm text-gray-400 hover:text-gray-600 underline underline-offset-2"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                Back
+                Skip tour
               </button>
-            )}
-            <button
-              onClick={handleNext}
-              className="px-4 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-cyan-700 hover:to-blue-700 transition-all flex items-center gap-1"
-            >
-              {currentStep === TOUR_STEPS.length - 1 ? (
-                <>
-                  Finish
+            </div>
+
+            <div className="flex items-center gap-2">
+              {currentStep > 0 && (
+                <button
+                  onClick={handlePrevious}
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg flex items-center gap-1.5 transition-colors"
+                >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
-                </>
-              ) : (
-                <>
-                  Next
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </>
+                  Back
+                </button>
               )}
-            </button>
+              <button
+                onClick={handleNext}
+                className="px-5 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-cyan-700 hover:to-blue-700 transition-all flex items-center gap-1.5 shadow-lg shadow-cyan-200"
+              >
+                {currentStep === TOUR_STEPS.length - 1 ? (
+                  <>
+                    Let's Go!
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </>
+                ) : (
+                  <>
+                    Next
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Keyboard hint */}
-        <div className="px-4 pb-3 border-t border-gray-100 pt-2">
-          <p className="text-xs text-gray-400 text-center">
-            Use arrow keys or Enter to navigate • Esc to close
+        <div className="px-6 pb-4">
+          <p className="text-xs text-gray-400 text-center bg-gray-50 py-2 rounded-lg">
+            💡 Use <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-gray-600">←</kbd> <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-gray-600">→</kbd> arrow keys or <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-gray-600">Enter</kbd> to navigate • <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-gray-600">Esc</kbd> to close
           </p>
         </div>
       </div>
@@ -495,7 +623,7 @@ export default function OnboardingTour({
       {/* Close button (always visible) */}
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+        className="absolute top-6 right-6 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all hover:scale-110"
         aria-label="Close tour"
       >
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -503,18 +631,30 @@ export default function OnboardingTour({
         </svg>
       </button>
 
-      {/* Help text at bottom */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
-        <p className="text-white/60 text-sm">
-          {demoMode ? 'Demo Mode - Click categories above to jump sections' : 'First time here? This tour shows you around!'}
-        </p>
+      {/* Bottom help text */}
+      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
+        <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full">
+          <KoenigMascot mood="happy" size="small" />
+          <p className="text-white/80 text-sm">
+            {demoMode ? 'Demo Mode - Showing portal features' : "Hi! I'm Koey, your learning guide!"}
+          </p>
+        </div>
       </div>
+
+      {/* CSS for wave animation */}
+      <style jsx>{`
+        @keyframes wave {
+          0%, 100% { transform: rotate(0deg); }
+          25% { transform: rotate(-15deg); }
+          75% { transform: rotate(15deg); }
+        }
+      `}</style>
     </div>
   );
 }
 
 // ============================================================================
-// TOUR LAUNCHER BUTTON
+// TOUR LAUNCHER BUTTON WITH MASCOT
 // ============================================================================
 
 export function TourLauncherButton({
@@ -528,11 +668,11 @@ export function TourLauncherButton({
     return (
       <button
         onClick={onClick}
-        className="p-2 rounded-full bg-cyan-100 text-cyan-600 hover:bg-cyan-200 transition-colors"
-        title="Start guided tour"
+        className="p-2 rounded-full bg-cyan-100 text-cyan-600 hover:bg-cyan-200 transition-all hover:scale-110 group"
+        title="Start guided tour with Koey"
         data-tour="tour-button"
       >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-5 h-5 group-hover:animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       </button>
@@ -542,13 +682,18 @@ export function TourLauncherButton({
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-cyan-700 hover:to-blue-700 transition-all"
+      className="flex items-center gap-3 px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-sm font-medium rounded-xl hover:from-cyan-700 hover:to-blue-700 transition-all shadow-lg shadow-cyan-200 hover:shadow-cyan-300 hover:scale-105"
       data-tour="tour-button"
     >
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-      Take a Tour
+      <div className="w-6 h-6">
+        <svg viewBox="0 0 100 100" className="w-full h-full">
+          <circle cx="50" cy="40" r="25" fill="white" />
+          <circle cx="42" cy="38" r="4" fill="#06b6d4" />
+          <circle cx="58" cy="38" r="4" fill="#06b6d4" />
+          <path d="M45 48 L50 55 L55 48 Z" fill="#f59e0b" />
+        </svg>
+      </div>
+      <span>Tour with Koey</span>
     </button>
   );
 }
@@ -561,6 +706,7 @@ interface TourContextValue {
   startTour: (demoMode?: boolean) => void;
   isActive: boolean;
   hasCompletedTour: boolean;
+  resetTour: () => void;
 }
 
 const TourContext = React.createContext<TourContextValue | null>(null);
@@ -568,12 +714,20 @@ const TourContext = React.createContext<TourContextValue | null>(null);
 export function TourProvider({ children }: { children: React.ReactNode }) {
   const [isActive, setIsActive] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
-  const [hasCompletedTour, setHasCompletedTour] = useState(false);
+  const [hasCompletedTour, setHasCompletedTour] = useState(true); // Default to true to prevent flash
 
   useEffect(() => {
-    // Check if user has completed tour before
-    const completed = localStorage.getItem('onboarding_tour_completed');
-    setHasCompletedTour(completed === 'true');
+    // Check if user has completed tour before (runs on client only)
+    const completed = localStorage.getItem('koenig_onboarding_completed');
+    const firstLogin = localStorage.getItem('koenig_first_login');
+
+    // If this is the first time checking (no firstLogin flag), set it
+    if (firstLogin === null) {
+      localStorage.setItem('koenig_first_login', 'true');
+      setHasCompletedTour(false);
+    } else {
+      setHasCompletedTour(completed === 'true');
+    }
   }, []);
 
   const startTour = (demo = false) => {
@@ -581,18 +735,26 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     setIsActive(true);
   };
 
+  const resetTour = () => {
+    localStorage.removeItem('koenig_onboarding_completed');
+    setHasCompletedTour(false);
+  };
+
   const handleComplete = () => {
     setIsActive(false);
     setHasCompletedTour(true);
-    localStorage.setItem('onboarding_tour_completed', 'true');
+    localStorage.setItem('koenig_onboarding_completed', 'true');
   };
 
   const handleClose = () => {
     setIsActive(false);
+    // Still mark as completed if they close early
+    setHasCompletedTour(true);
+    localStorage.setItem('koenig_onboarding_completed', 'true');
   };
 
   return (
-    <TourContext.Provider value={{ startTour, isActive, hasCompletedTour }}>
+    <TourContext.Provider value={{ startTour, isActive, hasCompletedTour, resetTour }}>
       {children}
       <OnboardingTour
         isOpen={isActive}
