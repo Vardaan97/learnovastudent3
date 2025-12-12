@@ -766,12 +766,36 @@ interface TourContextValue {
 
 const TourContext = React.createContext<TourContextValue | null>(null);
 
-// Storage key constants
+// Storage key constants - base keys (will be prefixed with company slug)
 const STORAGE_KEYS = {
   TOUR_COMPLETED: 'learnova_tour_completed',
   FIRST_VISIT: 'learnova_first_visit',
   PROGRESS: 'learnova_user_progress',
 };
+
+// Helper to get company-specific storage keys
+function getCompanyStorageKeys(companySlug: string | null) {
+  const prefix = companySlug ? `${companySlug}_` : '';
+  return {
+    TOUR_COMPLETED: `${prefix}${STORAGE_KEYS.TOUR_COMPLETED}`,
+    FIRST_VISIT: `${prefix}${STORAGE_KEYS.FIRST_VISIT}`,
+    PROGRESS: `${prefix}${STORAGE_KEYS.PROGRESS}`,
+  };
+}
+
+// Get company slug from URL path
+function getCompanySlugFromPath(): string | null {
+  if (typeof window === 'undefined') return null;
+  const pathParts = window.location.pathname.split('/').filter(Boolean);
+  if (pathParts.length > 0) {
+    const potentialSlug = pathParts[0].toLowerCase();
+    const reservedRoutes = ['login', 'logout', 'auth', 'api', '_next', 'static', 'images', 'favicon.ico'];
+    if (!reservedRoutes.includes(potentialSlug)) {
+      return potentialSlug;
+    }
+  }
+  return null;
+}
 
 export function TourProvider({ children }: { children: React.ReactNode }) {
   const [isActive, setIsActive] = useState(false);
@@ -780,26 +804,31 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   const [isFirstVisit, setIsFirstVisit] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [shouldAutoStart, setShouldAutoStart] = useState(false);
+  const [companySlug, setCompanySlug] = useState<string | null>(null);
 
-  // Initialize tour state from localStorage
+  // Initialize company slug and tour state from localStorage
   useEffect(() => {
     // Only run on client
     if (typeof window === 'undefined') return;
 
-    const tourCompleted = localStorage.getItem(STORAGE_KEYS.TOUR_COMPLETED);
-    const visitedBefore = localStorage.getItem(STORAGE_KEYS.FIRST_VISIT);
+    const slug = getCompanySlugFromPath();
+    setCompanySlug(slug);
 
-    console.log('[Tour] Init check - tourCompleted:', tourCompleted, 'visitedBefore:', visitedBefore);
+    const keys = getCompanyStorageKeys(slug);
+    const tourCompleted = localStorage.getItem(keys.TOUR_COMPLETED);
+    const visitedBefore = localStorage.getItem(keys.FIRST_VISIT);
 
-    // First time visitor - never been here before
+    console.log('[Tour] Init check - company:', slug, 'tourCompleted:', tourCompleted, 'visitedBefore:', visitedBefore);
+
+    // First time visitor for this company - never been here before
     if (visitedBefore === null) {
-      console.log('[Tour] First time visitor detected!');
-      localStorage.setItem(STORAGE_KEYS.FIRST_VISIT, new Date().toISOString());
+      console.log('[Tour] First time visitor detected for company:', slug);
+      localStorage.setItem(keys.FIRST_VISIT, new Date().toISOString());
       setIsFirstVisit(true);
       setHasCompletedTour(false);
       setShouldAutoStart(true);
     } else {
-      // Returning visitor - check if tour was completed
+      // Returning visitor - check if tour was completed for this company
       setIsFirstVisit(false);
       setHasCompletedTour(tourCompleted === 'true');
     }
@@ -812,9 +841,12 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isInitialized && shouldAutoStart && !isActive) {
       // Don't auto-start if user is on login page
-      if (typeof window !== 'undefined' && window.location.pathname === '/login') {
-        console.log('[Tour] Skipping auto-start - user on login page');
-        return;
+      if (typeof window !== 'undefined') {
+        const pathname = window.location.pathname;
+        if (pathname === '/login' || pathname.endsWith('/login')) {
+          console.log('[Tour] Skipping auto-start - user on login page');
+          return;
+        }
       }
 
       console.log('[Tour] Auto-starting tour for first-time visitor');
@@ -835,26 +867,29 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
 
   const resetTour = useCallback(() => {
     console.log('[Tour] Resetting tour');
-    localStorage.removeItem(STORAGE_KEYS.TOUR_COMPLETED);
-    localStorage.removeItem(STORAGE_KEYS.FIRST_VISIT);
+    const keys = getCompanyStorageKeys(companySlug);
+    localStorage.removeItem(keys.TOUR_COMPLETED);
+    localStorage.removeItem(keys.FIRST_VISIT);
     setHasCompletedTour(false);
     setIsFirstVisit(true);
-  }, []);
+  }, [companySlug]);
 
   const handleComplete = useCallback(() => {
     console.log('[Tour] Tour completed');
     setIsActive(false);
     setHasCompletedTour(true);
-    localStorage.setItem(STORAGE_KEYS.TOUR_COMPLETED, 'true');
-  }, []);
+    const keys = getCompanyStorageKeys(companySlug);
+    localStorage.setItem(keys.TOUR_COMPLETED, 'true');
+  }, [companySlug]);
 
   const handleClose = useCallback(() => {
     console.log('[Tour] Tour closed');
     setIsActive(false);
     // Mark as completed even if closed early
     setHasCompletedTour(true);
-    localStorage.setItem(STORAGE_KEYS.TOUR_COMPLETED, 'true');
-  }, []);
+    const keys = getCompanyStorageKeys(companySlug);
+    localStorage.setItem(keys.TOUR_COMPLETED, 'true');
+  }, [companySlug]);
 
   const contextValue = React.useMemo(() => ({
     startTour,
@@ -886,5 +921,5 @@ export function useTour() {
   return context;
 }
 
-// Export storage keys for use in other components
-export { STORAGE_KEYS };
+// Export storage keys and helper for use in other components
+export { STORAGE_KEYS, getCompanyStorageKeys };

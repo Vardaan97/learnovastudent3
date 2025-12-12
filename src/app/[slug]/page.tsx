@@ -30,10 +30,10 @@ import ExamPrep from '@/components/ExamPrep';
 import CelebrationOverlay from '@/components/CelebrationOverlay';
 import KeyboardShortcuts, { useKeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import WIPPopup, { useWIP } from '@/components/WIPPopup';
-import { useTour, TourLauncherButton, STORAGE_KEYS } from '@/components/OnboardingTour';
+import { useTour, TourLauncherButton, STORAGE_KEYS, getCompanyStorageKeys } from '@/components/OnboardingTour';
 
 import { useAuth } from '@/context/AuthContext';
-import { useTheme } from '@/context/ThemeContext';
+import { useTheme, isDemoCompany } from '@/context/ThemeContext';
 import { useGamification } from '@/context/GamificationContext';
 import {
   learnerProfile as defaultLearnerProfile,
@@ -93,11 +93,19 @@ export default function CompanyDashboardPage() {
 }
 
 // Helper function to determine if we should show clean slate (student portal) or demo data
-function shouldShowCleanSlate(): boolean {
+// Demo companies (PWC, Koenig) show pre-populated mock data
+// New companies created in Sales Portal show clean slate with onboarding
+function shouldShowCleanSlate(companySlug: string | null): boolean {
   if (typeof window === 'undefined') return true;
-  // On company-specific URLs (/hpe, /rt, etc.), always start with clean slate
-  // unless user clicked "Show Progress"
-  const stored = localStorage.getItem(STORAGE_KEYS.PROGRESS);
+
+  // Demo companies always show mock data (not clean slate)
+  if (isDemoCompany(companySlug)) {
+    return false;
+  }
+
+  // For new companies, check if user has manually loaded mock progress
+  const keys = getCompanyStorageKeys(companySlug);
+  const stored = localStorage.getItem(keys.PROGRESS);
   const parsed = stored ? JSON.parse(stored) : null;
   return !parsed?.loaded;
 }
@@ -123,31 +131,54 @@ function CompanyDashboard() {
   }, [companySlug, setCompany]);
 
   // Determine if this is a student portal (clean slate) or demo portal (populated)
-  const [isCleanSlate, setIsCleanSlate] = useState<boolean>(true);
+  // Demo companies (PWC, Koenig) show pre-populated mock data
+  // New companies created in Sales Portal show clean slate with onboarding
+  const [isCleanSlate, setIsCleanSlate] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    // Use the slug from URL params on initial render
+    return shouldShowCleanSlate(companySlug);
+  });
 
+  // Update clean slate state when companySlug changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setIsCleanSlate(shouldShowCleanSlate());
+    if (typeof window !== 'undefined' && companySlug) {
+      const shouldBeClean = shouldShowCleanSlate(companySlug);
+      setIsCleanSlate(shouldBeClean);
+
+      // Update data based on whether it's a demo company or new company
+      if (!shouldBeClean) {
+        // Demo company - load mock data
+        setModules(demoModules);
+        setProgress(demoProgress);
+        setQubitsModules(demoQubitsModules);
+        setQubitsDashboard(demoQubitsDashboard);
+      } else {
+        // New company - show clean slate
+        setModules(initialModulesData);
+        setProgress(initialLearnerProgress);
+        setQubitsModules(initialQubitsModulesData);
+        setQubitsDashboard(initialQubitsDashboardData);
+      }
     }
-  }, []);
+  }, [companySlug]);
 
   const [activeTab, setActiveTab] = useState<TabId>('course');
-  // Use initial (0%) data for company-specific URLs (clean slate)
+  // Use initial (0%) data for new companies, demo data for demo companies
   const [modules, setModules] = useState(() => {
     if (typeof window === 'undefined') return initialModulesData;
-    return shouldShowCleanSlate() ? initialModulesData : demoModules;
+    return shouldShowCleanSlate(companySlug) ? initialModulesData : demoModules;
   });
   const [progress, setProgress] = useState(() => {
     if (typeof window === 'undefined') return initialLearnerProgress;
-    return shouldShowCleanSlate() ? initialLearnerProgress : demoProgress;
+    return shouldShowCleanSlate(companySlug) ? initialLearnerProgress : demoProgress;
   });
   const [qubitsModules, setQubitsModules] = useState<QubitsModule[]>(() => {
     if (typeof window === 'undefined') return initialQubitsModulesData;
-    return shouldShowCleanSlate() ? initialQubitsModulesData : demoQubitsModules;
+    return shouldShowCleanSlate(companySlug) ? initialQubitsModulesData : demoQubitsModules;
   });
   const [qubitsDashboard, setQubitsDashboard] = useState<QubitsDashboard>(() => {
     if (typeof window === 'undefined') return initialQubitsDashboardData;
-    return shouldShowCleanSlate() ? initialQubitsDashboardData : demoQubitsDashboard;
+    return shouldShowCleanSlate(companySlug) ? initialQubitsDashboardData : demoQubitsDashboard;
   });
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
 
@@ -516,14 +547,15 @@ function CompanyDashboard() {
     setIsCleanSlate(false);
 
     if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.PROGRESS, JSON.stringify({
+      const keys = getCompanyStorageKeys(companySlug);
+      localStorage.setItem(keys.PROGRESS, JSON.stringify({
         loaded: true,
         timestamp: new Date().toISOString()
       }));
     }
 
     showWIP('Mock progress data loaded! You can now explore the dashboard with sample data.');
-  }, [showWIP]);
+  }, [showWIP, companySlug]);
 
   const handleShareProgress = () => {
     const text = `I'm making great progress on my AZ-104 Azure Administrator certification! 🎯 Currently at ${progress.overallProgress}% completion with a ${streak}-day learning streak! #Azure #CloudComputing #Learning`;

@@ -50,6 +50,16 @@ const companyThemes: Record<string, CompanyTheme> = {
   pwc: pwcTheme,
 };
 
+// Demo companies that should show pre-populated mock data
+// New companies created in Sales Portal should NOT be in this list
+export const DEMO_COMPANIES = ['pwc', 'koenig', 'demo'] as const;
+
+// Check if a company slug is a demo company (should show mock data)
+export function isDemoCompany(slug: string | null): boolean {
+  if (!slug) return false;
+  return DEMO_COMPANIES.includes(slug.toLowerCase() as typeof DEMO_COMPANIES[number]);
+}
+
 // Generate a dynamic theme for unknown companies
 function generateDynamicTheme(slug: string): CompanyTheme {
   const name = slug.charAt(0).toUpperCase() + slug.slice(1);
