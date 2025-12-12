@@ -155,19 +155,32 @@ interface CompanyProviderProps {
   companySlug?: string;
 }
 
-// Helper to extract company slug from subdomain
+// Helper to extract company slug from URL path or subdomain
 function getCompanySlugFromUrl(): string | null {
   if (typeof window === 'undefined') return null;
 
   const hostname = window.location.hostname;
+  const pathname = window.location.pathname;
+
+  // First check URL path pattern: /companyslug or /companyslug/...
+  // Example: student.learnova.training/rayontara
+  const pathParts = pathname.split('/').filter(Boolean);
+  if (pathParts.length > 0) {
+    const potentialSlug = pathParts[0];
+    // Check if first path segment looks like a company slug (not a page route)
+    const reservedRoutes = ['login', 'api', 'courses', 'dashboard', 'profile', 'settings', '_next'];
+    if (!reservedRoutes.includes(potentialSlug.toLowerCase())) {
+      return potentialSlug;
+    }
+  }
 
   // Check for subdomain pattern: {slug}.learnova.training or {slug}.localhost
-  const parts = hostname.split('.');
+  const hostParts = hostname.split('.');
 
   // Handle localhost (e.g., rayontara.localhost:3000)
   if (hostname.includes('localhost')) {
-    if (parts.length > 1 && parts[0] !== 'localhost' && parts[0] !== 'www') {
-      return parts[0];
+    if (hostParts.length > 1 && hostParts[0] !== 'localhost' && hostParts[0] !== 'www') {
+      return hostParts[0];
     }
     // Also check URL params for localhost testing
     const urlParams = new URLSearchParams(window.location.search);
@@ -176,8 +189,8 @@ function getCompanySlugFromUrl(): string | null {
 
   // Handle production domains like rayontara.learnova.training
   if (hostname.includes('learnova.training')) {
-    if (parts.length >= 3 && parts[0] !== 'www' && parts[0] !== 'student' && parts[0] !== 'tc') {
-      return parts[0];
+    if (hostParts.length >= 3 && hostParts[0] !== 'www' && hostParts[0] !== 'student' && hostParts[0] !== 'tc') {
+      return hostParts[0];
     }
   }
 
