@@ -181,6 +181,73 @@ export function CompanyProvider({
     applyBrandingCSS(branding);
   }, [branding]);
 
+  // Listen for real-time config updates from sales portal
+  useEffect(() => {
+    const LEARNER_CONFIG_KEY = 'koenig_learner_config';
+
+    // Check for existing config on mount
+    const loadExistingConfig = () => {
+      try {
+        const stored = localStorage.getItem(LEARNER_CONFIG_KEY);
+        if (stored) {
+          const config = JSON.parse(stored);
+          // Only apply if this config is for our company or if we're not company-specific
+          if (!company?.slug || config.slug === company.slug) {
+            if (config.branding) {
+              setBranding(prev => ({ ...prev, ...config.branding }));
+            }
+            if (config.features) {
+              setFeatures(prev => ({ ...prev, ...config.features }));
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load config from sales portal:', error);
+      }
+    };
+
+    // Listen for storage events from sales portal (cross-tab)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === LEARNER_CONFIG_KEY && e.newValue) {
+        try {
+          const config = JSON.parse(e.newValue);
+          if (!company?.slug || config.slug === company.slug) {
+            if (config.branding) {
+              setBranding(prev => ({ ...prev, ...config.branding }));
+            }
+            if (config.features) {
+              setFeatures(prev => ({ ...prev, ...config.features }));
+            }
+          }
+        } catch (error) {
+          console.error('Failed to parse config update:', error);
+        }
+      }
+    };
+
+    // Listen for custom events (same-tab)
+    const handleConfigUpdate = (e: CustomEvent) => {
+      const config = e.detail;
+      if (!company?.slug || config.slug === company.slug) {
+        if (config.branding) {
+          setBranding(prev => ({ ...prev, ...config.branding }));
+        }
+        if (config.features) {
+          setFeatures(prev => ({ ...prev, ...config.features }));
+        }
+      }
+    };
+
+    loadExistingConfig();
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('learner-config-update', handleConfigUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('learner-config-update', handleConfigUpdate as EventListener);
+    };
+  }, [company?.slug]);
+
   // Load company data from API or preset
   const loadCompany = async (slug: string) => {
     setIsLoading(true);
