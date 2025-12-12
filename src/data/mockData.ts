@@ -58,6 +58,8 @@ export const modules: Module[] = [
         status: 'completed',
         progress: 100,
         completedAt: '2024-11-20',
+        videoUrl: 'https://www.youtube.com/watch?v=pY0LnKiDwRA',
+        thumbnailUrl: 'https://img.youtube.com/vi/pY0LnKiDwRA/maxresdefault.jpg',
       },
       {
         id: 'lesson-1-2',
@@ -68,6 +70,8 @@ export const modules: Module[] = [
         status: 'completed',
         progress: 100,
         completedAt: '2024-11-20',
+        videoUrl: 'https://www.youtube.com/watch?v=Ma7VAQE7ga4',
+        thumbnailUrl: 'https://img.youtube.com/vi/Ma7VAQE7ga4/maxresdefault.jpg',
       },
       {
         id: 'lesson-1-3',
@@ -78,6 +82,8 @@ export const modules: Module[] = [
         status: 'completed',
         progress: 100,
         completedAt: '2024-11-21',
+        videoUrl: 'https://www.youtube.com/watch?v=4v7ffXxOnwU',
+        thumbnailUrl: 'https://img.youtube.com/vi/4v7ffXxOnwU/maxresdefault.jpg',
       },
       {
         id: 'lesson-1-4',
@@ -88,6 +94,8 @@ export const modules: Module[] = [
         status: 'completed',
         progress: 100,
         completedAt: '2024-11-21',
+        videoUrl: 'https://www.youtube.com/watch?v=WVNvoiA_ktw',
+        thumbnailUrl: 'https://img.youtube.com/vi/WVNvoiA_ktw/maxresdefault.jpg',
       },
     ],
     quiz: {
@@ -163,6 +171,8 @@ export const modules: Module[] = [
         status: 'completed',
         progress: 100,
         completedAt: '2024-11-22',
+        videoUrl: 'https://www.youtube.com/watch?v=UzTtastcBsk',
+        thumbnailUrl: 'https://img.youtube.com/vi/UzTtastcBsk/maxresdefault.jpg',
       },
       {
         id: 'lesson-2-2',
@@ -173,6 +183,8 @@ export const modules: Module[] = [
         status: 'completed',
         progress: 100,
         completedAt: '2024-11-22',
+        videoUrl: 'https://www.youtube.com/watch?v=UzTtastcBsk',
+        thumbnailUrl: 'https://img.youtube.com/vi/UzTtastcBsk/maxresdefault.jpg',
       },
       {
         id: 'lesson-2-3',
@@ -183,6 +195,8 @@ export const modules: Module[] = [
         status: 'in_progress',
         progress: 45,
         lastPosition: 765,
+        videoUrl: 'https://www.youtube.com/watch?v=NJT8VdEfMZI',
+        thumbnailUrl: 'https://img.youtube.com/vi/NJT8VdEfMZI/maxresdefault.jpg',
       },
       {
         id: 'lesson-2-4',
@@ -192,6 +206,8 @@ export const modules: Module[] = [
         duration: '30:00',
         status: 'not_started',
         progress: 0,
+        videoUrl: 'https://www.youtube.com/watch?v=X5RCHt9BPFs',
+        thumbnailUrl: 'https://img.youtube.com/vi/X5RCHt9BPFs/maxresdefault.jpg',
       },
     ],
     quiz: {
@@ -237,6 +253,8 @@ export const modules: Module[] = [
         type: 'video',
         duration: '25:00',
         status: 'not_started',
+        videoUrl: 'https://www.youtube.com/watch?v=inaXkN2UrFE',
+        thumbnailUrl: 'https://img.youtube.com/vi/inaXkN2UrFE/maxresdefault.jpg',
         progress: 0,
       },
       {
@@ -247,6 +265,8 @@ export const modules: Module[] = [
         duration: '30:00',
         status: 'locked',
         progress: 0,
+        videoUrl: 'https://www.youtube.com/watch?v=inaXkN2UrFE',
+        thumbnailUrl: 'https://img.youtube.com/vi/inaXkN2UrFE/maxresdefault.jpg',
       },
       {
         id: 'lesson-3-3',
@@ -256,6 +276,8 @@ export const modules: Module[] = [
         duration: '28:00',
         status: 'locked',
         progress: 0,
+        videoUrl: 'https://www.youtube.com/watch?v=n9KGdwfqmhg',
+        thumbnailUrl: 'https://img.youtube.com/vi/n9KGdwfqmhg/maxresdefault.jpg',
       },
       {
         id: 'lesson-3-4',
@@ -265,6 +287,8 @@ export const modules: Module[] = [
         duration: '35:00',
         status: 'locked',
         progress: 0,
+        videoUrl: 'https://www.youtube.com/watch?v=MzS8_qHSPws',
+        thumbnailUrl: 'https://img.youtube.com/vi/MzS8_qHSPws/maxresdefault.jpg',
       },
     ],
     quiz: {
@@ -365,6 +389,8 @@ export const initialModulesData: Module[] = [
         duration: '18:45',
         status: 'not_started',
         progress: 0,
+        videoUrl: 'https://www.youtube.com/watch?v=pY0LnKiDwRA',
+        thumbnailUrl: 'https://img.youtube.com/vi/pY0LnKiDwRA/maxresdefault.jpg',
       },
       {
         id: 'lesson-1-2',
@@ -374,6 +400,8 @@ export const initialModulesData: Module[] = [
         duration: '24:30',
         status: 'locked',
         progress: 0,
+        videoUrl: 'https://www.youtube.com/watch?v=Ma7VAQE7ga4',
+        thumbnailUrl: 'https://img.youtube.com/vi/Ma7VAQE7ga4/maxresdefault.jpg',
       },
       {
         id: 'lesson-1-3',
@@ -383,6 +411,8 @@ export const initialModulesData: Module[] = [
         duration: '32:15',
         status: 'locked',
         progress: 0,
+        videoUrl: 'https://www.youtube.com/watch?v=4v7ffXxOnwU',
+        thumbnailUrl: 'https://img.youtube.com/vi/4v7ffXxOnwU/maxresdefault.jpg',
       },
       {
         id: 'lesson-1-4',
@@ -392,6 +422,8 @@ export const initialModulesData: Module[] = [
         duration: '28:00',
         status: 'locked',
         progress: 0,
+        videoUrl: 'https://www.youtube.com/watch?v=WVNvoiA_ktw',
+        thumbnailUrl: 'https://img.youtube.com/vi/WVNvoiA_ktw/maxresdefault.jpg',
       },
     ],
     quiz: {
@@ -453,6 +485,8 @@ export const initialModulesData: Module[] = [
         duration: '22:30',
         status: 'locked',
         progress: 0,
+        videoUrl: 'https://www.youtube.com/watch?v=UzTtastcBsk',
+        thumbnailUrl: 'https://img.youtube.com/vi/UzTtastcBsk/maxresdefault.jpg',
       },
       {
         id: 'lesson-2-2',
@@ -462,6 +496,8 @@ export const initialModulesData: Module[] = [
         duration: '35:45',
         status: 'locked',
         progress: 0,
+        videoUrl: 'https://www.youtube.com/watch?v=UzTtastcBsk',
+        thumbnailUrl: 'https://img.youtube.com/vi/UzTtastcBsk/maxresdefault.jpg',
       },
       {
         id: 'lesson-2-3',
@@ -471,6 +507,8 @@ export const initialModulesData: Module[] = [
         duration: '28:20',
         status: 'locked',
         progress: 0,
+        videoUrl: 'https://www.youtube.com/watch?v=NJT8VdEfMZI',
+        thumbnailUrl: 'https://img.youtube.com/vi/NJT8VdEfMZI/maxresdefault.jpg',
       },
       {
         id: 'lesson-2-4',
@@ -480,6 +518,8 @@ export const initialModulesData: Module[] = [
         duration: '30:00',
         status: 'locked',
         progress: 0,
+        videoUrl: 'https://www.youtube.com/watch?v=X5RCHt9BPFs',
+        thumbnailUrl: 'https://img.youtube.com/vi/X5RCHt9BPFs/maxresdefault.jpg',
       },
     ],
     quiz: {
@@ -526,6 +566,8 @@ export const initialModulesData: Module[] = [
         duration: '25:00',
         status: 'locked',
         progress: 0,
+        videoUrl: 'https://www.youtube.com/watch?v=inaXkN2UrFE',
+        thumbnailUrl: 'https://img.youtube.com/vi/inaXkN2UrFE/maxresdefault.jpg',
       },
       {
         id: 'lesson-3-2',
@@ -535,6 +577,8 @@ export const initialModulesData: Module[] = [
         duration: '30:00',
         status: 'locked',
         progress: 0,
+        videoUrl: 'https://www.youtube.com/watch?v=inaXkN2UrFE',
+        thumbnailUrl: 'https://img.youtube.com/vi/inaXkN2UrFE/maxresdefault.jpg',
       },
       {
         id: 'lesson-3-3',
@@ -544,6 +588,8 @@ export const initialModulesData: Module[] = [
         duration: '28:00',
         status: 'locked',
         progress: 0,
+        videoUrl: 'https://www.youtube.com/watch?v=n9KGdwfqmhg',
+        thumbnailUrl: 'https://img.youtube.com/vi/n9KGdwfqmhg/maxresdefault.jpg',
       },
       {
         id: 'lesson-3-4',
@@ -553,6 +599,8 @@ export const initialModulesData: Module[] = [
         duration: '35:00',
         status: 'locked',
         progress: 0,
+        videoUrl: 'https://www.youtube.com/watch?v=MzS8_qHSPws',
+        thumbnailUrl: 'https://img.youtube.com/vi/MzS8_qHSPws/maxresdefault.jpg',
       },
     ],
     quiz: {

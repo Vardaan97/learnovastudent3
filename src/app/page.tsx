@@ -92,6 +92,23 @@ export default function LearnerDashboardPage() {
   );
 }
 
+// Helper function to determine if we should show clean slate (student portal) or demo data
+function shouldShowCleanSlate(): boolean {
+  if (typeof window === 'undefined') return true;
+  const hostname = window.location.hostname;
+  // student.learnova.training = clean slate (new user experience)
+  // learnova.training or learnovastudent3.vercel.app = demo data (for showing populated dashboard)
+  // localhost = check for manual override or default to clean slate
+  if (hostname.startsWith('student.') || hostname.includes('localhost')) {
+    // On student portal, check if user explicitly loaded demo data
+    const stored = localStorage.getItem(STORAGE_KEYS.PROGRESS);
+    const parsed = stored ? JSON.parse(stored) : null;
+    return !parsed?.loaded; // Clean slate unless user clicked "Show Progress"
+  }
+  // On main demo portal (learnova.training), show demo data
+  return false;
+}
+
 function LearnerDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -101,54 +118,37 @@ function LearnerDashboard() {
   const { wipState, showWIP, hideWIP } = useWIP();
   const { startTour, hasCompletedTour, isFirstVisit, isInitialized } = useTour();
 
-  // Determine if this is a first-time user (check localStorage directly for reliability)
-  const [isNewUser, setIsNewUser] = useState<boolean | null>(null);
+  // Determine if this is a student portal (clean slate) or demo portal (populated)
+  const [isCleanSlate, setIsCleanSlate] = useState<boolean>(true);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const userProgress = localStorage.getItem(STORAGE_KEYS.PROGRESS);
-      const firstVisit = localStorage.getItem('learnova_first_visit');
-      // User is new if they haven't stored progress yet OR it's their first visit
-      setIsNewUser(userProgress === null && firstVisit === null);
+      setIsCleanSlate(shouldShowCleanSlate());
     }
   }, []);
 
   const [activeTab, setActiveTab] = useState<TabId>('course');
-  // Use initial (0%) data for new users, demo data for returning users
+  // Use initial (0%) data for student portal, demo data for main learnova.training
   const [modules, setModules] = useState(() => {
     if (typeof window === 'undefined') return initialModulesData;
-    const stored = localStorage.getItem(STORAGE_KEYS.PROGRESS);
-    return stored === null ? initialModulesData : demoModules;
+    return shouldShowCleanSlate() ? initialModulesData : demoModules;
   });
   const [progress, setProgress] = useState(() => {
     if (typeof window === 'undefined') return initialLearnerProgress;
-    const stored = localStorage.getItem(STORAGE_KEYS.PROGRESS);
-    return stored === null ? initialLearnerProgress : demoProgress;
+    return shouldShowCleanSlate() ? initialLearnerProgress : demoProgress;
   });
   const [qubitsModules, setQubitsModules] = useState<QubitsModule[]>(() => {
     if (typeof window === 'undefined') return initialQubitsModulesData;
-    const stored = localStorage.getItem(STORAGE_KEYS.PROGRESS);
-    return stored === null ? initialQubitsModulesData : demoQubitsModules;
+    return shouldShowCleanSlate() ? initialQubitsModulesData : demoQubitsModules;
   });
   const [qubitsDashboard, setQubitsDashboard] = useState<QubitsDashboard>(() => {
     if (typeof window === 'undefined') return initialQubitsDashboardData;
-    const stored = localStorage.getItem(STORAGE_KEYS.PROGRESS);
-    return stored === null ? initialQubitsDashboardData : demoQubitsDashboard;
+    return shouldShowCleanSlate() ? initialQubitsDashboardData : demoQubitsDashboard;
   });
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
 
-  // Mark that user has started using the portal (save progress marker)
-  useEffect(() => {
-    if (isAuthenticated && !isLoading && typeof window !== 'undefined') {
-      // Set progress marker after a delay to allow tour to complete
-      const timer = setTimeout(() => {
-        if (!localStorage.getItem(STORAGE_KEYS.PROGRESS)) {
-          localStorage.setItem(STORAGE_KEYS.PROGRESS, JSON.stringify({ started: new Date().toISOString() }));
-        }
-      }, 5000); // 5 second delay after login
-      return () => clearTimeout(timer);
-    }
-  }, [isAuthenticated, isLoading]);
+  // Note: On student.learnova.training, we don't auto-save progress marker
+  // Users can click "Show Progress" button to load demo data
 
   // Video player state
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
@@ -562,8 +562,8 @@ function LearnerDashboard() {
     setQubitsModules(demoQubitsModules);
     setQubitsDashboard(demoQubitsDashboard);
 
-    // Mark as no longer new user
-    setIsNewUser(false);
+    // Mark that demo data was loaded
+    setIsCleanSlate(false);
 
     // Save to localStorage
     if (typeof window !== 'undefined') {
