@@ -25,7 +25,7 @@ export default function TabNavigation({
   certificateEarned,
 }: TabNavigationProps) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-2 mb-6">
+    <div className="bg-white rounded-2xl border border-gray-200 p-2 mb-6" data-tour="tabs">
       <div className="flex flex-wrap gap-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;

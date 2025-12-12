@@ -52,226 +52,117 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'welcome',
     target: 'body',
-    title: 'Welcome to Koenig Learning Portal!',
-    content: 'This quick tour will show you how to navigate the portal and make the most of your learning experience. Let\'s get started!',
+    title: 'Welcome to Koenig Learning Portal! 🎉',
+    content: 'This quick tour will show you how to navigate the portal and make the most of your learning experience. Use arrow keys or click Next to continue.',
     position: 'center',
     category: 'intro',
   },
 
-  // Navigation
+  // Course Header
   {
-    id: 'sidebar',
-    target: '[data-tour="sidebar"]',
-    title: 'Navigation Sidebar',
-    content: 'Use the sidebar to navigate between different sections. You can collapse it for more screen space by clicking the arrow icon.',
-    position: 'right',
-    spotlightPadding: 10,
-    category: 'navigation',
-  },
-  {
-    id: 'dashboard-link',
-    target: '[data-tour="nav-dashboard"]',
-    title: 'Dashboard',
-    content: 'Your main dashboard shows an overview of your progress, upcoming activities, and quick actions.',
-    position: 'right',
-    category: 'navigation',
-  },
-  {
-    id: 'courses-link',
-    target: '[data-tour="nav-courses"]',
-    title: 'My Courses',
-    content: 'Access all your enrolled courses here. Track progress, continue lessons, and access course materials.',
-    position: 'right',
-    category: 'navigation',
-  },
-
-  // Course Content
-  {
-    id: 'course-card',
-    target: '[data-tour="course-card"]',
-    title: 'Course Cards',
-    content: 'Each card shows your progress, remaining lessons, and estimated time. Click to open the course.',
+    id: 'course-header',
+    target: '[data-tour="course-header"]',
+    title: 'Your Current Course',
+    content: 'This shows your enrolled course with overall progress. The circular progress indicator updates as you complete lessons and quizzes.',
     position: 'bottom',
     spotlightPadding: 15,
     category: 'courses',
   },
+
+  // Tab Navigation
   {
-    id: 'video-player',
-    target: '[data-tour="video-player"]',
-    title: 'Video Lessons',
-    content: 'Watch video lessons with our interactive player. Your progress is saved automatically, so you can continue where you left off.',
+    id: 'tabs',
+    target: '[data-tour="tabs"]',
+    title: 'Main Navigation Tabs',
+    content: 'Switch between Course content, Qubits practice tests, Resources, Support, and your Certificate. Each tab has specialized features.',
     position: 'bottom',
-    waitForElement: true,
+    spotlightPadding: 10,
+    category: 'navigation',
+  },
+
+  // Module List
+  {
+    id: 'modules',
+    target: '[data-tour="modules"]',
+    title: 'Course Modules',
+    content: 'Your course is divided into modules. Click on any lesson to watch the video. Complete all lessons to unlock the module quiz!',
+    position: 'right',
+    spotlightPadding: 15,
     category: 'courses',
   },
-  {
-    id: 'lesson-navigation',
-    target: '[data-tour="lesson-nav"]',
-    title: 'Lesson Navigation',
-    content: 'Navigate between modules and lessons using this panel. Completed lessons show a checkmark.',
-    position: 'left',
-    waitForElement: true,
-    category: 'courses',
-  },
 
-  // Learning Tools
+  // Quick Stats
   {
-    id: 'qubits',
-    target: '[data-tour="qubits"]',
-    title: 'Qubits - Quick Knowledge Checks',
-    content: 'Test your knowledge with Qubits - bite-sized questions that appear after each lesson. Great for retention!',
-    position: 'top',
-    category: 'tools',
-  },
-  {
-    id: 'flashcards',
-    target: '[data-tour="flashcards"]',
-    title: 'Flashcards',
-    content: 'Create and review flashcards using spaced repetition. The system automatically schedules reviews for optimal learning.',
+    id: 'quick-stats',
+    target: '[data-tour="quick-stats"]',
+    title: 'Quick Stats & Tools',
+    content: 'See your XP, level, and streak at a glance. Quick access to AI Assistant, Focus Mode, and Exam Prep are always available here.',
     position: 'bottom',
-    category: 'tools',
-  },
-  {
-    id: 'bookmarks',
-    target: '[data-tour="bookmarks"]',
-    title: 'Bookmarks & Notes',
-    content: 'Bookmark important content and add notes. Access them anytime from the sidebar.',
-    position: 'left',
+    spotlightPadding: 10,
     category: 'tools',
   },
 
-  // Exam Prep
+  // Progress Sidebar
   {
-    id: 'exam-prep',
-    target: '[data-tour="exam-prep"]',
-    title: 'Exam Preparation',
-    content: 'Practice with our exam simulator that mimics the real certification exam. Track weak areas and focus your study.',
-    position: 'bottom',
-    category: 'exam',
-  },
-  {
-    id: 'weak-areas',
-    target: '[data-tour="weak-areas"]',
-    title: 'Weak Area Analysis',
-    content: 'Our AI analyzes your quiz performance to identify topics that need more attention.',
-    position: 'bottom',
-    category: 'exam',
+    id: 'progress-sidebar',
+    target: '[data-tour="progress-sidebar"]',
+    title: 'Your Progress',
+    content: 'Track your overall progress, lessons completed, quizzes passed, and time spent learning. Your statistics update in real-time!',
+    position: 'left',
+    spotlightPadding: 15,
+    category: 'progress',
   },
 
-  // Productivity
+  // Gamification Widget
   {
-    id: 'focus-mode',
-    target: '[data-tour="focus-mode"]',
-    title: 'Focus Mode',
-    content: 'Enable Focus Mode for distraction-free learning with a Pomodoro timer. Perfect for deep work sessions.',
+    id: 'gamification',
+    target: '[data-tour="gamification"]',
+    title: 'Gamification & Achievements',
+    content: 'Earn XP for every action! Complete daily challenges, unlock achievements, and level up. Keep your streak going for bonus XP!',
     position: 'left',
-    category: 'productivity',
-  },
-  {
-    id: 'study-calendar',
-    target: '[data-tour="calendar"]',
-    title: 'Study Calendar',
-    content: 'Schedule study sessions, set reminders, and track your study habits over time.',
-    position: 'left',
-    category: 'productivity',
+    spotlightPadding: 15,
+    category: 'gamification',
   },
 
-  // AI & Help
+  // Quick Tools
   {
-    id: 'ai-assistant',
-    target: '[data-tour="ai-assistant"]',
-    title: 'AI Study Assistant',
-    content: 'Got questions? Our AI assistant can help explain concepts, provide examples, and guide your learning.',
+    id: 'quick-tools',
+    target: '[data-tour="quick-tools"]',
+    title: 'Quick Tools',
+    content: 'Access Bookmarks, Calendar, Flashcards, Mind Maps, Community, and Analytics. These tools enhance your learning experience.',
     position: 'left',
+    spotlightPadding: 10,
+    category: 'tools',
+  },
+
+  // Share Progress
+  {
+    id: 'share-progress',
+    target: '[data-tour="share-progress"]',
+    title: 'Share Your Progress',
+    content: 'Celebrate your achievements! Share your progress on LinkedIn and social media to showcase your learning journey.',
+    position: 'left',
+    spotlightPadding: 10,
+    category: 'social',
+  },
+
+  // Tour Button
+  {
+    id: 'tour-button',
+    target: '[data-tour="tour-button"]',
+    title: 'Take Guided Tour Anytime',
+    content: 'Need a refresher? Click this button anytime to restart the guided tour. Great for exploring new features!',
+    position: 'left',
+    spotlightPadding: 10,
     category: 'help',
   },
 
-  // Gamification
+  // Keyboard shortcuts tip
   {
-    id: 'xp-badge',
-    target: '[data-tour="xp-badge"]',
-    title: 'XP & Achievements',
-    content: 'Earn XP for completing lessons and quizzes. Level up and unlock achievements as you progress!',
-    position: 'bottom',
-    category: 'gamification',
-  },
-  {
-    id: 'daily-challenge',
-    target: '[data-tour="daily-challenge"]',
-    title: 'Daily Challenges',
-    content: 'Complete daily challenges for bonus XP and maintain your learning streak.',
-    position: 'bottom',
-    category: 'gamification',
-  },
-  {
-    id: 'leaderboard',
-    target: '[data-tour="leaderboard"]',
-    title: 'Leaderboard',
-    content: 'See how you rank among your colleagues. Friendly competition drives motivation!',
-    position: 'left',
-    category: 'gamification',
-  },
-
-  // Social
-  {
-    id: 'study-groups',
-    target: '[data-tour="study-groups"]',
-    title: 'Study Groups',
-    content: 'Join or create study groups with colleagues. Share resources and learn together.',
-    position: 'left',
-    category: 'social',
-  },
-  {
-    id: 'forum',
-    target: '[data-tour="forum"]',
-    title: 'Discussion Forum',
-    content: 'Ask questions, share insights, and help fellow learners in the community forum.',
-    position: 'left',
-    category: 'social',
-  },
-
-  // Progress
-  {
-    id: 'progress-dashboard',
-    target: '[data-tour="progress"]',
-    title: 'Your Progress',
-    content: 'Track your learning journey with detailed analytics. See time spent, completion rates, and more.',
-    position: 'top',
-    category: 'progress',
-  },
-  {
-    id: 'certificates',
-    target: '[data-tour="certificates"]',
-    title: 'Certificates',
-    content: 'Earn certificates upon course completion. Download and share your achievements!',
-    position: 'top',
-    category: 'progress',
-  },
-
-  // Settings
-  {
-    id: 'user-menu',
-    target: '[data-tour="user-menu"]',
-    title: 'User Settings',
-    content: 'Access your profile, preferences, and account settings from here.',
-    position: 'bottom',
-    category: 'settings',
-  },
-  {
-    id: 'theme-toggle',
-    target: '[data-tour="theme-toggle"]',
-    title: 'Theme Toggle',
-    content: 'Switch between light and dark mode based on your preference.',
-    position: 'bottom',
-    category: 'settings',
-  },
-
-  // Keyboard Shortcuts
-  {
-    id: 'keyboard-shortcuts',
+    id: 'keyboard-tip',
     target: 'body',
-    title: 'Keyboard Shortcuts',
-    content: 'Pro tip: Press "?" at any time to see all keyboard shortcuts. Use "J/K" to navigate lessons, "Space" to play/pause videos, and more!',
+    title: 'Pro Tips! ⌨️',
+    content: 'Press "?" for keyboard shortcuts. Use Ctrl+A for AI Assistant, Ctrl+B for Bookmarks, Ctrl+F for Focus Mode. Press Escape to close any panel.',
     position: 'center',
     category: 'tips',
   },
@@ -280,8 +171,8 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'tour-complete',
     target: 'body',
-    title: 'You\'re All Set!',
-    content: 'That\'s the tour! You can restart this tour anytime from Settings. Now go ace those certifications!',
+    title: 'You\'re All Set! 🚀',
+    content: 'Start learning by clicking on any lesson. Complete quizzes to unlock achievements. Good luck with your certification journey!',
     position: 'center',
     category: 'outro',
   },

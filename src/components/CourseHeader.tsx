@@ -21,7 +21,7 @@ interface CourseHeaderProps {
 
 export default function CourseHeader({ course, progress }: CourseHeaderProps) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
+    <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6" data-tour="course-header">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         {/* Course Info */}
         <div className="flex items-start gap-4">

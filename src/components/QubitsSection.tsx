@@ -23,6 +23,8 @@ interface QubitsSectionProps {
   dashboard: QubitsDashboard;
   onStartTest: (moduleIds: string[], questionCounts: Record<string, number>) => void;
   onReset: () => void;
+  onShareAchievement?: () => void;
+  onRequestBadge?: () => void;
 }
 
 export default function QubitsSection({
@@ -30,6 +32,8 @@ export default function QubitsSection({
   dashboard,
   onStartTest,
   onReset,
+  onShareAchievement,
+  onRequestBadge,
 }: QubitsSectionProps) {
   const [modules, setModules] = useState(initialModules);
   const [questionCounts, setQuestionCounts] = useState<Record<string, number>>(() => {
@@ -92,7 +96,10 @@ export default function QubitsSection({
               <RotateCcw className="w-4 h-4" />
               Reset All
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-white text-cyan-600 hover:bg-gray-100 rounded-lg font-medium text-sm transition-colors">
+            <button
+              onClick={onShareAchievement}
+              className="flex items-center gap-2 px-4 py-2 bg-white text-cyan-600 hover:bg-gray-100 rounded-lg font-medium text-sm transition-colors"
+            >
               <Share2 className="w-4 h-4" />
               Share Achievement
             </button>
@@ -261,7 +268,10 @@ export default function QubitsSection({
               Achieved 80%+ accuracy? Share your accomplishment on LinkedIn!
             </p>
           </div>
-          <button className="ml-auto px-4 py-2 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition-colors">
+          <button
+            onClick={onRequestBadge}
+            className="ml-auto px-4 py-2 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition-colors"
+          >
             Request Badge
           </button>
         </div>

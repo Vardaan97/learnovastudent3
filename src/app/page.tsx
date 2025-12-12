@@ -30,6 +30,7 @@ import ExamPrep from '@/components/ExamPrep';
 import CelebrationOverlay from '@/components/CelebrationOverlay';
 import KeyboardShortcuts, { useKeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import WIPPopup, { useWIP } from '@/components/WIPPopup';
+import { useTour, TourLauncherButton } from '@/components/OnboardingTour';
 
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -62,6 +63,7 @@ import {
   Share2,
   Flame,
   Star,
+  HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -93,6 +95,7 @@ function LearnerDashboard() {
   const { theme, isCustomBranded } = useTheme();
   const { addXP, level, streak, xp, unlockAchievement } = useGamification();
   const { wipState, showWIP, hideWIP } = useWIP();
+  const { startTour, hasCompletedTour } = useTour();
 
   const [activeTab, setActiveTab] = useState<TabId>('course');
   const [modules, setModules] = useState(initialModules);
@@ -512,9 +515,44 @@ function LearnerDashboard() {
       navigator.share({ title: 'My Learning Progress', text });
     } else {
       navigator.clipboard.writeText(text);
-      showWIP('Share Progress copied to clipboard!');
+      showWIP('Progress copied to clipboard! Share it on LinkedIn or social media.');
     }
   };
+
+  // Handle share achievement (for Qubits)
+  const handleShareAchievement = () => {
+    const text = `🏆 Achievement Unlocked! I've completed ${qubitsDashboard.totalQuestionsAttempted} practice questions on Azure AZ-104 with ${qubitsDashboard.overallAccuracy}% accuracy! Preparing for certification the smart way. #Azure #CloudComputing #Learning #Microsoft`;
+    if (navigator.share) {
+      navigator.share({
+        title: 'My Qubits Achievement',
+        text,
+        url: window.location.href
+      });
+    } else {
+      navigator.clipboard.writeText(text);
+      showWIP('Achievement copied to clipboard! Share your success on LinkedIn.');
+    }
+  };
+
+  // Handle request badge
+  const handleRequestBadge = () => {
+    if (qubitsDashboard.overallAccuracy >= 80) {
+      showWIP('Badge request submitted! You will receive your digital badge via email within 24-48 hours.');
+      addXP(100, 'Requested achievement badge');
+    } else {
+      showWIP(`You need 80%+ accuracy to request a badge. Current: ${qubitsDashboard.overallAccuracy}%`);
+    }
+  };
+
+  // Auto-start tour for first-time users
+  useEffect(() => {
+    if (!hasCompletedTour && isAuthenticated && !isLoading) {
+      const timer = setTimeout(() => {
+        startTour();
+      }, 1500); // Small delay for UI to load
+      return () => clearTimeout(timer);
+    }
+  }, [hasCompletedTour, isAuthenticated, isLoading, startTour]);
 
   // Loading state
   if (isLoading) {
@@ -551,6 +589,8 @@ function LearnerDashboard() {
             dashboard={qubitsDashboard}
             onStartTest={handleQubitsStartTest}
             onReset={handleQubitsReset}
+            onShareAchievement={handleShareAchievement}
+            onRequestBadge={handleRequestBadge}
           />
         );
       case 'resources':
@@ -595,7 +635,7 @@ function LearnerDashboard() {
       />
 
       {/* Quick Stats Bar */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white border-b border-gray-200" data-tour="quick-stats">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between">
             <GamificationWidget compact />
@@ -638,15 +678,19 @@ function LearnerDashboard() {
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">{renderTabContent()}</div>
+          <div className="lg:col-span-3" data-tour="modules">{renderTabContent()}</div>
           <div className="lg:col-span-1 space-y-6">
-            <ProgressSidebar progress={progress} qubitsDashboard={qubitsDashboard} />
+            <div data-tour="progress-sidebar">
+              <ProgressSidebar progress={progress} qubitsDashboard={qubitsDashboard} />
+            </div>
 
             {/* Gamification Widget */}
-            <GamificationWidget />
+            <div data-tour="gamification">
+              <GamificationWidget />
+            </div>
 
             {/* Quick Tools */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5" data-tour="quick-tools">
               <h3 className="font-semibold text-gray-900 mb-4">Quick Tools</h3>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -697,9 +741,20 @@ function LearnerDashboard() {
               <button
                 onClick={handleShareProgress}
                 className="w-full mt-4 flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl hover:from-cyan-600 hover:to-blue-600 transition-colors"
+                data-tour="share-progress"
               >
                 <Share2 className="w-4 h-4" />
                 Share My Progress
+              </button>
+
+              {/* Help / Tour Button */}
+              <button
+                onClick={() => startTour()}
+                className="w-full mt-4 flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-xl hover:from-violet-600 hover:to-purple-600 transition-colors"
+                data-tour="tour-button"
+              >
+                <HelpCircle className="w-4 h-4" />
+                Take Guided Tour
               </button>
 
               {/* Keyboard Shortcuts */}
