@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Header from '@/components/Header';
 import CourseHeader from '@/components/CourseHeader';
 import TabNavigation from '@/components/TabNavigation';
 import ModuleList from '@/components/ModuleList';
 import VideoPlayer from '@/components/VideoPlayer';
+import YouTubePlayer from '@/components/YouTubePlayer';
 import QuizModal from '@/components/QuizModal';
 import QubitsPracticeModal from '@/components/QubitsPracticeModal';
 import ProgressSidebar from '@/components/ProgressSidebar';
@@ -13,8 +15,9 @@ import QubitsSection from '@/components/QubitsSection';
 import ResourcesSection from '@/components/ResourcesSection';
 import SupportSection from '@/components/SupportSection';
 import CertificateSection from '@/components/CertificateSection';
+import { useAuth } from '@/context/AuthContext';
 import {
-  learnerProfile,
+  learnerProfile as defaultLearnerProfile,
   course,
   modules as initialModules,
   learnerProgress,
@@ -22,22 +25,50 @@ import {
   qubitsDashboard as initialQubitsDashboard,
   trainer,
   resources,
-  notifications,
+  notifications as initialNotifications,
 } from '@/data/mockData';
 import { getQuestionsFromModules } from '@/data/qubitsQuestions';
-import type { TabId, Lesson, Module, Quiz, QuizQuestion, QubitsModule, QubitsDashboard } from '@/types';
+import type { TabId, Lesson, Module, Quiz, QuizQuestion, QubitsModule, QubitsDashboard, Notification, LearnerProfile } from '@/types';
+import { Loader2 } from 'lucide-react';
 
-export default function LearnerDashboard() {
+// Loading fallback component
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <Loader2 className="w-10 h-10 animate-spin text-cyan-600 mx-auto mb-4" />
+        <p className="text-gray-500">Loading...</p>
+      </div>
+    </div>
+  );
+}
+
+// Wrapper component to handle Suspense for useSearchParams
+export default function LearnerDashboardPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <LearnerDashboard />
+    </Suspense>
+  );
+}
+
+function LearnerDashboard() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, isAuthenticated, isLoading } = useAuth();
+
   const [activeTab, setActiveTab] = useState<TabId>('course');
   const [modules, setModules] = useState(initialModules);
   const [progress, setProgress] = useState(learnerProgress);
   const [qubitsModules, setQubitsModules] = useState<QubitsModule[]>(initialQubitsModules);
   const [qubitsDashboard, setQubitsDashboard] = useState<QubitsDashboard>(initialQubitsDashboard);
+  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
 
   // Video player state
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
   const [currentModule, setCurrentModule] = useState<Module | null>(null);
   const [isVideoOpen, setIsVideoOpen] = useState(false);
+  const [useYouTube, setUseYouTube] = useState(true); // Toggle between YouTube and simulated player
 
   // Quiz state
   const [currentQuiz, setCurrentQuiz] = useState<Quiz | null>(null);
@@ -48,6 +79,50 @@ export default function LearnerDashboard() {
   const [isPracticeOpen, setIsPracticeOpen] = useState(false);
   const [practiceQuestions, setPracticeQuestions] = useState<QuizQuestion[]>([]);
   const [practiceModuleTitle, setPracticeModuleTitle] = useState('');
+
+  // Create learner profile from auth user
+  const learnerProfile: LearnerProfile = user
+    ? {
+        id: user.id,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        learnerId: `KS-${user.id.substring(0, 8).toUpperCase()}`,
+        enrolledDate: new Date().toISOString().split('T')[0],
+        organization: user.organizationId || 'Individual Learner',
+      }
+    : defaultLearnerProfile;
+
+  // Handle OAuth callback
+  useEffect(() => {
+    const authUser = searchParams.get('auth_user');
+    if (authUser) {
+      try {
+        const userData = JSON.parse(decodeURIComponent(authUser));
+        const setAuthUser = (window as unknown as { __setAuthUser?: (user: typeof userData) => void }).__setAuthUser;
+        if (setAuthUser) {
+          setAuthUser(userData);
+        }
+        // Clean URL
+        router.replace('/');
+      } catch (error) {
+        console.error('Failed to parse auth user:', error);
+      }
+    }
+  }, [searchParams, router]);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  // Mark notification as read
+  const handleMarkNotificationRead = useCallback((notificationId: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
+    );
+  }, []);
 
   // Find lesson and module by ID
   const findLessonAndModule = useCallback(
@@ -96,21 +171,37 @@ export default function LearnerDashboard() {
   const handleLessonComplete = useCallback(
     (lessonId: string) => {
       setModules((prev) =>
-        prev.map((module) => ({
-          ...module,
-          lessons: module.lessons.map((lesson) =>
-            lesson.id === lessonId
-              ? { ...lesson, status: 'completed' as const, progress: 100 }
-              : lesson
-          ),
-          progress: Math.round(
-            (module.lessons.filter(
-              (l) => l.id === lessonId || l.status === 'completed'
-            ).length /
-              module.lessons.length) *
-              100
-          ),
-        }))
+        prev.map((module) => {
+          const lessonIndex = module.lessons.findIndex((l) => l.id === lessonId);
+          if (lessonIndex === -1) return module;
+
+          const updatedLessons = module.lessons.map((lesson, idx) => {
+            if (lesson.id === lessonId) {
+              return { ...lesson, status: 'completed' as const, progress: 100 };
+            }
+            // Unlock next lesson
+            if (idx === lessonIndex + 1 && lesson.status === 'locked') {
+              return { ...lesson, status: 'not_started' as const };
+            }
+            return lesson;
+          });
+
+          const completedCount = updatedLessons.filter((l) => l.status === 'completed').length;
+          const moduleProgress = Math.round((completedCount / updatedLessons.length) * 100);
+
+          // Check if module is complete
+          const allLessonsComplete = updatedLessons.every((l) => l.status === 'completed');
+
+          return {
+            ...module,
+            lessons: updatedLessons,
+            progress: moduleProgress,
+            status: allLessonsComplete ? 'completed' as const : 'in_progress' as const,
+            quiz: allLessonsComplete && module.quiz.status === 'locked'
+              ? { ...module.quiz, status: 'not_started' as const }
+              : module.quiz,
+          };
+        })
       );
 
       setProgress((prev) => ({
@@ -119,6 +210,7 @@ export default function LearnerDashboard() {
         overallProgress: Math.round(
           ((prev.lessonsCompleted + 1) / prev.totalLessons) * 100
         ),
+        lastAccessedAt: new Date().toISOString(),
       }));
     },
     []
@@ -136,7 +228,7 @@ export default function LearnerDashboard() {
                   ...lesson,
                   progress: progressValue,
                   lastPosition: position,
-                  status: progressValue > 0 ? 'in_progress' : lesson.status,
+                  status: progressValue > 0 && lesson.status === 'not_started' ? 'in_progress' : lesson.status,
                 }
               : lesson
           ),
@@ -158,10 +250,18 @@ export default function LearnerDashboard() {
     if (nextLesson) {
       setCurrentLesson(nextLesson);
     } else {
-      // No more lessons in module, close video
-      handleCloseVideo();
+      // No more lessons in module, check for next module
+      const moduleIndex = modules.findIndex((m) => m.id === currentModule.id);
+      const nextModule = modules[moduleIndex + 1];
+
+      if (nextModule && nextModule.lessons[0]) {
+        setCurrentModule(nextModule);
+        setCurrentLesson(nextModule.lessons[0]);
+      } else {
+        handleCloseVideo();
+      }
     }
-  }, [currentModule, currentLesson, handleCloseVideo]);
+  }, [currentModule, currentLesson, modules, handleCloseVideo]);
 
   // Handle quiz close
   const handleCloseQuiz = useCallback(() => {
@@ -171,12 +271,15 @@ export default function LearnerDashboard() {
 
   // Handle quiz submit
   const handleQuizSubmit = useCallback(
-    (score: number, answers: Record<string, string[]>) => {
+    (score: number, _answers: Record<string, string[]>) => {
       const passed = score >= (currentQuiz?.passingScore || 70);
 
       setModules((prev) =>
-        prev.map((module) => {
+        prev.map((module, idx) => {
           if (module.quiz.id === currentQuiz?.id) {
+            // Unlock next module if passed
+            const shouldUnlockNext = passed && module.progress === 100;
+
             return {
               ...module,
               quiz: {
@@ -187,6 +290,19 @@ export default function LearnerDashboard() {
               status: passed && module.progress === 100 ? 'completed' : module.status,
             };
           }
+
+          // Unlock next module
+          const prevModule = prev[idx - 1];
+          if (prevModule?.quiz.id === currentQuiz?.id && passed && module.status === 'locked') {
+            return {
+              ...module,
+              status: 'not_started' as const,
+              lessons: module.lessons.map((l, i) =>
+                i === 0 ? { ...l, status: 'not_started' as const } : l
+              ),
+            };
+          }
+
           return module;
         })
       );
@@ -204,6 +320,8 @@ export default function LearnerDashboard() {
             (prev.averageScore * prev.quizzesPassed + score) /
               (prev.quizzesPassed + 1)
           ),
+          // Check if certificate should be earned
+          certificateEarned: prev.quizzesPassed + 1 >= prev.totalQuizzes,
         }));
       }
     },
@@ -213,7 +331,6 @@ export default function LearnerDashboard() {
   // Handle review video from quiz
   const handleReviewVideo = useCallback(() => {
     handleCloseQuiz();
-    // Find the module for the quiz and play the first lesson
     const module = modules.find((m) => m.quiz.id === currentQuiz?.id);
     if (module && module.lessons[0]) {
       handlePlayLesson(module.lessons[0].id, module.id);
@@ -223,7 +340,6 @@ export default function LearnerDashboard() {
   // Handle Qubits start test
   const handleQubitsStartTest = useCallback(
     (moduleIds: string[], questionCounts: Record<string, number>) => {
-      // Get questions from selected modules
       const questions = getQuestionsFromModules(moduleIds, questionCounts);
 
       if (questions.length === 0) {
@@ -231,7 +347,6 @@ export default function LearnerDashboard() {
         return;
       }
 
-      // Create module title based on selection
       const selectedTitles = moduleIds
         .map((id) => {
           const mod = qubitsModules.find((m) => m.id === id);
@@ -254,46 +369,58 @@ export default function LearnerDashboard() {
   const handlePracticeComplete = useCallback(
     (score: number, totalTime: number, results: { questionId: string; isCorrect: boolean }[]) => {
       const totalQuestions = results.length;
+      const correctCount = results.filter((r) => r.isCorrect).length;
 
-      // Update Qubits dashboard stats
-      setQubitsDashboard((prev) => ({
-        ...prev,
-        totalQuizzes: prev.totalQuizzes + 1,
-        totalQuestionsAttempted: prev.totalQuestionsAttempted + totalQuestions,
-        overallAccuracy: Math.round(
-          ((prev.overallAccuracy * prev.totalQuestionsAttempted + score * totalQuestions / 100) /
-            (prev.totalQuestionsAttempted + totalQuestions)) * 100
-        ) / 100 * 100,
-        timeSpent: `${Math.round(parseInt(prev.timeSpent) + totalTime / 60)}h`,
-        streak: prev.streak + (score >= 70 ? 1 : 0),
-        lastPracticeDate: new Date().toISOString(),
-      }));
+      setQubitsDashboard((prev) => {
+        const newTotalAttempted = prev.totalQuestionsAttempted + totalQuestions;
+        const prevCorrect = Math.round((prev.overallAccuracy / 100) * prev.totalQuestionsAttempted);
+        const newTotalCorrect = prevCorrect + correctCount;
+        const newAccuracy = newTotalAttempted > 0 ? Math.round((newTotalCorrect / newTotalAttempted) * 100) : 0;
 
-      // Update individual module stats
+        const timeMatch = prev.timeSpent.match(/(\d+)h\s*(\d+)?m?/);
+        const prevHours = timeMatch ? parseInt(timeMatch[1]) : 0;
+        const prevMins = timeMatch && timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+        const prevTotalMins = prevHours * 60 + prevMins;
+        const newTotalMins = prevTotalMins + Math.round(totalTime / 60);
+        const newHours = Math.floor(newTotalMins / 60);
+        const newMins = newTotalMins % 60;
+        const newTimeSpent = newMins > 0 ? `${newHours}h ${newMins}m` : `${newHours}h`;
+
+        return {
+          ...prev,
+          totalQuizzes: prev.totalQuizzes + 1,
+          totalQuestionsAttempted: newTotalAttempted,
+          overallAccuracy: newAccuracy,
+          timeSpent: newTimeSpent,
+          streak: score >= 70 ? prev.streak + 1 : 0,
+          lastPracticeDate: new Date().toISOString(),
+        };
+      });
+
       setQubitsModules((prev) =>
         prev.map((mod) => {
-          const moduleQuestions = results.filter((r) =>
-            practiceQuestions.find((q) => q.id === r.questionId)?.id.startsWith(mod.id.replace('qubits-', 'qb'))
-          );
+          const modulePrefix = mod.id.replace('qubits-', 'qb');
+          const moduleQuestions = results.filter((r) => r.questionId.startsWith(modulePrefix));
 
           if (moduleQuestions.length === 0) return mod;
 
           const moduleCorrect = moduleQuestions.filter((r) => r.isCorrect).length;
+          const newAttempted = mod.attemptedQuestions + moduleQuestions.length;
+          const newCorrect = mod.correctAnswers + moduleCorrect;
+          const newAccuracy = newAttempted > 0 ? Math.round((newCorrect / newAttempted) * 100) : 0;
 
           return {
             ...mod,
-            attemptedQuestions: mod.attemptedQuestions + moduleQuestions.length,
-            correctAnswers: mod.correctAnswers + moduleCorrect,
+            attemptedQuestions: newAttempted,
+            correctAnswers: newCorrect,
             incorrectAnswers: mod.incorrectAnswers + (moduleQuestions.length - moduleCorrect),
-            unattempted: Math.max(0, mod.unattempted - moduleQuestions.length),
-            accuracy: Math.round(
-              ((mod.correctAnswers + moduleCorrect) / (mod.attemptedQuestions + moduleQuestions.length)) * 100
-            ),
+            unattempted: Math.max(0, mod.totalQuestions - newAttempted),
+            accuracy: newAccuracy,
           };
         })
       );
     },
-    [practiceQuestions]
+    []
   );
 
   // Handle Qubits reset
@@ -301,6 +428,23 @@ export default function LearnerDashboard() {
     setQubitsModules(initialQubitsModules);
     setQubitsDashboard(initialQubitsDashboard);
   }, []);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="w-10 h-10 animate-spin text-cyan-600 mx-auto mb-4" />
+          <p className="text-gray-500">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Not authenticated - show nothing while redirecting
+  if (!isAuthenticated) {
+    return null;
+  }
 
   // Render tab content
   const renderTabContent = () => {
@@ -341,7 +485,11 @@ export default function LearnerDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header learner={learnerProfile} notifications={notifications} />
+      <Header
+        learner={learnerProfile}
+        notifications={notifications}
+        onMarkNotificationRead={handleMarkNotificationRead}
+      />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <CourseHeader course={course} progress={progress} />
@@ -353,33 +501,48 @@ export default function LearnerDashboard() {
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Main Content */}
           <div className="lg:col-span-3">{renderTabContent()}</div>
-
-          {/* Sidebar */}
           <div className="lg:col-span-1">
             <ProgressSidebar progress={progress} qubitsDashboard={qubitsDashboard} />
           </div>
         </div>
       </main>
 
-      {/* Video Player Modal */}
+      {/* Video Player Modal - YouTube or Simulated */}
       {isVideoOpen && currentLesson && currentModule && (
-        <VideoPlayer
-          isOpen={isVideoOpen}
-          onClose={handleCloseVideo}
-          lesson={currentLesson}
-          module={currentModule}
-          courseName={course.name}
-          onComplete={handleLessonComplete}
-          onProgressUpdate={handleProgressUpdate}
-          onNextLesson={
-            currentModule.lessons.findIndex((l) => l.id === currentLesson.id) <
-            currentModule.lessons.length - 1
-              ? handleNextLesson
-              : undefined
-          }
-        />
+        useYouTube ? (
+          <YouTubePlayer
+            isOpen={isVideoOpen}
+            onClose={handleCloseVideo}
+            lesson={currentLesson}
+            module={currentModule}
+            courseName={course.name}
+            onComplete={handleLessonComplete}
+            onProgressUpdate={handleProgressUpdate}
+            onNextLesson={
+              currentModule.lessons.findIndex((l) => l.id === currentLesson.id) <
+              currentModule.lessons.length - 1
+                ? handleNextLesson
+                : undefined
+            }
+          />
+        ) : (
+          <VideoPlayer
+            isOpen={isVideoOpen}
+            onClose={handleCloseVideo}
+            lesson={currentLesson}
+            module={currentModule}
+            courseName={course.name}
+            onComplete={handleLessonComplete}
+            onProgressUpdate={handleProgressUpdate}
+            onNextLesson={
+              currentModule.lessons.findIndex((l) => l.id === currentLesson.id) <
+              currentModule.lessons.length - 1
+                ? handleNextLesson
+                : undefined
+            }
+          />
+        )
       )}
 
       {/* Quiz Modal */}

@@ -12,14 +12,17 @@ import {
   Play,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
 import type { LearnerProfile, Notification } from '@/types';
 
 interface HeaderProps {
   learner: LearnerProfile;
   notifications: Notification[];
+  onMarkNotificationRead?: (id: string) => void;
 }
 
-export default function Header({ learner, notifications }: HeaderProps) {
+export default function Header({ learner, notifications, onMarkNotificationRead }: HeaderProps) {
+  const { logout } = useAuth();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
@@ -163,7 +166,10 @@ export default function Header({ learner, notifications }: HeaderProps) {
                     </button>
                   </div>
                   <div className="border-t border-gray-100 py-1">
-                    <button className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                    <button
+                      onClick={logout}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    >
                       <LogOut className="w-4 h-4" />
                       Sign Out
                     </button>
