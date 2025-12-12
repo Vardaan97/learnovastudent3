@@ -10,6 +10,7 @@ import {
   LogOut,
   BookOpen,
   Play,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -19,9 +20,10 @@ interface HeaderProps {
   learner: LearnerProfile;
   notifications: Notification[];
   onMarkNotificationRead?: (id: string) => void;
+  onLoadMockProgress?: () => void;
 }
 
-export default function Header({ learner, notifications, onMarkNotificationRead }: HeaderProps) {
+export default function Header({ learner, notifications, onMarkNotificationRead, onLoadMockProgress }: HeaderProps) {
   const { logout } = useAuth();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -64,6 +66,17 @@ export default function Header({ learner, notifications, onMarkNotificationRead 
 
           {/* Right Section */}
           <div className="flex items-center gap-3">
+            {/* Show Progress Button */}
+            {onLoadMockProgress && (
+              <button
+                onClick={onLoadMockProgress}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-500 to-pink-500 rounded-full hover:from-purple-600 hover:to-pink-600 transition-all shadow-md hover:shadow-lg"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span className="hidden sm:inline">Show Progress</span>
+              </button>
+            )}
+
             {/* Notifications */}
             <div className="relative">
               <button

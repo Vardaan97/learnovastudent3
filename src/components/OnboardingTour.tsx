@@ -808,14 +808,21 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Auto-start tour for first-time visitors after initialization
+  // NOTE: Tour should only start after user has logged in - check if on login page
   useEffect(() => {
     if (isInitialized && shouldAutoStart && !isActive) {
+      // Don't auto-start if user is on login page
+      if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+        console.log('[Tour] Skipping auto-start - user on login page');
+        return;
+      }
+
       console.log('[Tour] Auto-starting tour for first-time visitor');
-      // Delay to allow page to fully render
+      // Longer delay to ensure dashboard is fully rendered after login
       const timer = setTimeout(() => {
         setIsActive(true);
         setShouldAutoStart(false);
-      }, 2000);
+      }, 3500);
       return () => clearTimeout(timer);
     }
   }, [isInitialized, shouldAutoStart, isActive]);

@@ -554,6 +554,29 @@ function LearnerDashboard() {
     setQubitsDashboard(initialQubitsDashboardData);
   }, []);
 
+  // Handle load mock progress (Show Progress button)
+  const handleLoadMockProgress = useCallback(() => {
+    // Load demo data with progress
+    setModules(demoModules);
+    setProgress(demoProgress);
+    setQubitsModules(demoQubitsModules);
+    setQubitsDashboard(demoQubitsDashboard);
+
+    // Mark as no longer new user
+    setIsNewUser(false);
+
+    // Save to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEYS.PROGRESS, JSON.stringify({
+        loaded: true,
+        timestamp: new Date().toISOString()
+      }));
+    }
+
+    // Show notification
+    showWIP('Mock progress data loaded! You can now explore the dashboard with sample data.');
+  }, [showWIP]);
+
   // Handle share progress
   const handleShareProgress = () => {
     const text = `I'm making great progress on my AZ-104 Azure Administrator certification! 🎯 Currently at ${progress.overallProgress}% completion with a ${streak}-day learning streak! #Azure #CloudComputing #Learning`;
@@ -671,6 +694,7 @@ function LearnerDashboard() {
         learner={learnerProfile}
         notifications={notifications}
         onMarkNotificationRead={handleMarkNotificationRead}
+        onLoadMockProgress={handleLoadMockProgress}
       />
 
       {/* Quick Stats Bar */}
