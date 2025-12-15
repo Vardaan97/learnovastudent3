@@ -120,12 +120,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Login with email/password
   const login = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    // Check if Supabase is configured
+    if (!isSupabaseConfigured()) {
+      throw new Error('Please use "Enter Demo Mode" button or configure Supabase credentials.');
+    }
 
-    if (error) throw error;
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        // Handle specific error types
+        if (error.message?.includes('fetch') || error.message?.includes('network') || error.message === 'Load failed') {
+          throw new Error('Unable to connect to server. Please check your internet connection and try again.');
+        }
+        if (error.message?.includes('Invalid login credentials')) {
+          throw new Error('Invalid email or password. Please check your credentials and try again.');
+        }
+        throw error;
+      }
+    } catch (err) {
+      // Convert generic errors to user-friendly messages
+      if (err instanceof Error) {
+        if (err.message === 'Load failed' || err.message?.includes('fetch')) {
+          throw new Error('Unable to connect to server. Please check your internet connection and try again.');
+        }
+        throw err;
+      }
+      throw new Error('Login failed. Please try again.');
+    }
   }, []);
 
   // Login as demo user (always works, uses localStorage)
@@ -162,43 +187,76 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     metadata?: { firstName?: string; lastName?: string }
   ) => {
-    // Sign up the user
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          first_name: metadata?.firstName,
-          last_name: metadata?.lastName,
+    // Check if Supabase is configured
+    if (!isSupabaseConfigured()) {
+      // Demo mode - create a mock user and auto-login
+      const mockUser: User = {
+        id: `demo-${Date.now()}`,
+        email: email,
+        firstName: metadata?.firstName || '',
+        lastName: metadata?.lastName || '',
+        organizationId: '11111111-1111-1111-1111-111111111111',
+        role: 'learner',
+      };
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(mockUser));
+      setUser(mockUser);
+      return;
+    }
+
+    try {
+      // Sign up the user with Supabase
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: metadata?.firstName,
+            last_name: metadata?.lastName,
+          },
         },
-      },
-    });
+      });
 
-    if (error) throw error;
-
-    // If user was created successfully, create a profile in public.users
-    if (data.user) {
-      try {
-        await supabase.from('users').insert({
-          id: data.user.id,
-          email: email,
-          first_name: metadata?.firstName || '',
-          last_name: metadata?.lastName || '',
-          role: 'learner',
-          status: 'active',
-          company_id: '11111111-1111-1111-1111-111111111111', // Default to Koenig
-        });
-      } catch (profileError) {
-        console.error('Error creating user profile:', profileError);
-        // Profile creation failure shouldn't block sign-up
+      if (error) {
+        // Handle specific error types
+        if (error.message?.includes('fetch') || error.message?.includes('network') || error.message?.includes('Load failed')) {
+          throw new Error('Network error. Please check your connection and try again.');
+        }
+        throw error;
       }
 
-      // Auto sign-in after sign-up (if email confirmation is disabled in Supabase)
-      if (data.session) {
-        setSession(data.session);
-        const profile = await fetchUserProfile(data.user.id);
-        setUser(transformUser(data.user, profile));
+      // If user was created successfully, create a profile in public.users
+      if (data.user) {
+        try {
+          await supabase.from('users').insert({
+            id: data.user.id,
+            email: email,
+            first_name: metadata?.firstName || '',
+            last_name: metadata?.lastName || '',
+            role: 'learner',
+            status: 'active',
+            company_id: '11111111-1111-1111-1111-111111111111', // Default to Koenig
+          });
+        } catch (profileError) {
+          console.error('Error creating user profile:', profileError);
+          // Profile creation failure shouldn't block sign-up
+        }
+
+        // Auto sign-in after sign-up (if email confirmation is disabled in Supabase)
+        if (data.session) {
+          setSession(data.session);
+          const profile = await fetchUserProfile(data.user.id);
+          setUser(transformUser(data.user, profile));
+        }
       }
+    } catch (err) {
+      // Convert generic errors to user-friendly messages
+      if (err instanceof Error) {
+        if (err.message === 'Load failed' || err.message?.includes('fetch')) {
+          throw new Error('Unable to connect to server. Please check your internet connection and try again.');
+        }
+        throw err;
+      }
+      throw new Error('Sign up failed. Please try again.');
     }
   }, [fetchUserProfile]);
 
