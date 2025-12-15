@@ -4,18 +4,22 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import { BookOpen, Shield, Award, Play, Loader2, Mail, Lock, Eye, EyeOff, AlertCircle, UserPlus } from 'lucide-react';
+import { BookOpen, Shield, Award, Play, Loader2, Mail, Lock, Eye, EyeOff, AlertCircle, User, CheckCircle } from 'lucide-react';
 
-export default function LoginPage() {
-  const { login, loginAsDemo, isAuthenticated, isLoading } = useAuth();
+export default function SignUpPage() {
+  const { signUp, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
   // Form state
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
@@ -23,37 +27,43 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // Handle email/password login
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  // Validate password
+  const validatePassword = (pass: string): string | null => {
+    if (pass.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
+    return null;
+  };
+
+  // Handle sign up
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!email || !password) {
-      setError('Please enter both email and password');
+    // Validation
+    if (!firstName || !lastName || !email || !password) {
+      setError('Please fill in all fields');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      await login(email, password);
+      await signUp(email, password, { firstName, lastName });
+      setSuccess(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed. Please check your credentials.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Handle demo login (no credentials needed)
-  const handleDemoLogin = async () => {
-    setError(null);
-    setIsSubmitting(true);
-
-    try {
-      await loginAsDemo();
-      router.push('/');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Demo login failed. Please try again.');
+      setError(err instanceof Error ? err.message : 'Sign up failed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -63,6 +73,32 @@ export default function LoginPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-cyan-50 to-blue-50">
         <Loader2 className="w-8 h-8 animate-spin text-cyan-600" />
+      </div>
+    );
+  }
+
+  // Success state - if already authenticated, redirect happens via useEffect
+  // Otherwise show success message
+  if (success && !isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-white to-blue-50 flex items-center justify-center p-8">
+        <div className="w-full max-w-md">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 text-center">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Created!</h2>
+            <p className="text-gray-600 mb-6">
+              Your account has been created successfully. You can now sign in with your credentials.
+            </p>
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl font-semibold hover:from-cyan-700 hover:to-blue-700 transition-all"
+            >
+              Sign In Now
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
@@ -86,10 +122,10 @@ export default function LoginPage() {
             {/* Features */}
             <div className="space-y-8">
               <h1 className="text-4xl font-bold leading-tight">
-                Master Azure with Expert-Led Training
+                Start Your Learning Journey Today
               </h1>
               <p className="text-cyan-100 text-lg">
-                Accelerate your cloud career with industry-leading certification courses and hands-on labs.
+                Join thousands of learners mastering cloud technologies with Koenig Solutions.
               </p>
 
               <div className="space-y-6 mt-12">
@@ -98,9 +134,9 @@ export default function LoginPage() {
                     <BookOpen className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg">Interactive Video Lessons</h3>
+                    <h3 className="font-semibold text-lg">729+ Courses</h3>
                     <p className="text-cyan-100 text-sm">
-                      Learn from certified instructors with real-world experience
+                      Access courses from Microsoft, AWS, Google, and more
                     </p>
                   </div>
                 </div>
@@ -110,9 +146,9 @@ export default function LoginPage() {
                     <Play className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg">Practice with Qubits</h3>
+                    <h3 className="font-semibold text-lg">Hands-on Labs</h3>
                     <p className="text-cyan-100 text-sm">
-                      Randomized practice tests to prepare you for certification
+                      Practice with real cloud environments
                     </p>
                   </div>
                 </div>
@@ -122,9 +158,9 @@ export default function LoginPage() {
                     <Award className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg">Free Exam Vouchers</h3>
+                    <h3 className="font-semibold text-lg">Industry Certifications</h3>
                     <p className="text-cyan-100 text-sm">
-                      Get certified with included Microsoft exam vouchers
+                      Get certified and advance your career
                     </p>
                   </div>
                 </div>
@@ -134,9 +170,9 @@ export default function LoginPage() {
                     <Shield className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg">SCORM Compliant</h3>
+                    <h3 className="font-semibold text-lg">Microsoft Partner of the Year</h3>
                     <p className="text-cyan-100 text-sm">
-                      Track your progress seamlessly across all devices
+                      Learn from an award-winning training provider
                     </p>
                   </div>
                 </div>
@@ -149,7 +185,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Right Panel - Login Form */}
+        {/* Right Panel - Sign Up Form */}
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="w-full max-w-md">
             {/* Mobile Logo */}
@@ -164,8 +200,8 @@ export default function LoginPage() {
 
             <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
               <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold text-gray-900">Welcome Back</h2>
-                <p className="text-gray-500 mt-2">Sign in to continue your learning journey</p>
+                <h2 className="text-2xl font-bold text-gray-900">Create Account</h2>
+                <p className="text-gray-500 mt-2">Start your learning journey with us</p>
               </div>
 
               {/* Error Alert */}
@@ -176,8 +212,40 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* Email/Password Form */}
-              <form onSubmit={handleEmailLogin} className="space-y-4">
+              {/* Sign Up Form */}
+              <form onSubmit={handleSignUp} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
+                      First Name
+                    </label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="text"
+                        id="firstName"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        placeholder="John"
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
+                      Last Name
+                    </label>
+                    <input
+                      type="text"
+                      id="lastName"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Doe"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                     Email Address
@@ -206,7 +274,7 @@ export default function LoginPage() {
                       id="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Enter your password"
+                      placeholder="At least 6 characters"
                       className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all"
                     />
                     <button
@@ -219,34 +287,50 @@ export default function LoginPage() {
                   </div>
                 </div>
 
+                <div>
+                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirm Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      id="confirmPassword"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm your password"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full flex items-center justify-center gap-3 px-6 py-3.5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl font-semibold hover:from-cyan-700 hover:to-blue-700 transition-all shadow-lg shadow-cyan-200/50 hover:shadow-cyan-300/50 disabled:opacity-70 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-3 px-6 py-3.5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl font-semibold hover:from-cyan-700 hover:to-blue-700 transition-all shadow-lg shadow-cyan-200/50 hover:shadow-cyan-300/50 disabled:opacity-70 disabled:cursor-not-allowed mt-6"
                 >
                   {isSubmitting ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <>
-                      <Mail className="w-5 h-5" />
-                      Sign In
+                      Create Account
                     </>
                   )}
                 </button>
               </form>
 
-              {/* Sign Up Link */}
+              {/* Sign In Link */}
               <div className="mt-6 text-center">
                 <p className="text-sm text-gray-600">
-                  Don&apos;t have an account?{' '}
-                  <Link href="/signup" className="text-cyan-600 hover:text-cyan-700 font-medium">
-                    Sign up
+                  Already have an account?{' '}
+                  <Link href="/login" className="text-cyan-600 hover:text-cyan-700 font-medium">
+                    Sign in
                   </Link>
                 </p>
               </div>
 
               <p className="text-xs text-center text-gray-500 mt-6">
-                By signing in, you agree to our{' '}
+                By signing up, you agree to our{' '}
                 <a href="#" className="text-cyan-600 hover:text-cyan-700">
                   Terms of Service
                 </a>{' '}
@@ -255,24 +339,6 @@ export default function LoginPage() {
                   Privacy Policy
                 </a>
               </p>
-            </div>
-
-            {/* Demo Notice */}
-            <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-              <p className="text-sm text-amber-800 text-center mb-3">
-                <strong>Demo Mode:</strong> Try the portal without credentials
-              </p>
-              <button
-                onClick={handleDemoLogin}
-                disabled={isSubmitting}
-                className="w-full px-4 py-2.5 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition-colors disabled:opacity-50"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="w-5 h-5 animate-spin mx-auto" />
-                ) : (
-                  'Enter Demo Mode'
-                )}
-              </button>
             </div>
           </div>
         </div>

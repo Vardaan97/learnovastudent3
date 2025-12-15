@@ -1,16 +1,58 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
-import { BookOpen, Shield, Award, Play, Loader2 } from 'lucide-react';
+import { BookOpen, Shield, Award, Play, Loader2, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 export default function CompanyLoginPage() {
-  const { login, isAuthenticated, isLoading } = useAuth();
+  const { login, loginAsDemo, isAuthenticated, isLoading } = useAuth();
   const { theme, setCompany } = useTheme();
   const router = useRouter();
   const params = useParams();
+
+  // Form state
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Handle email/password login
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!email || !password) {
+      setError('Please enter both email and password');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await login(email, password);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed. Please check your credentials.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle demo login
+  const handleDemoLogin = async () => {
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      await loginAsDemo();
+      router.push(`/${params?.slug || ''}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Demo login failed');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Get company slug from URL params
   const companySlug = params?.slug as string;
@@ -147,80 +189,86 @@ export default function CompanyLoginPage() {
                 <p className="text-gray-500 mt-2">Sign in to continue your learning journey</p>
               </div>
 
-              {/* WorkOS Login Button */}
-              <button
-                onClick={login}
-                className="w-full flex items-center justify-center gap-3 px-6 py-4 text-white rounded-xl font-semibold transition-all shadow-lg hover:opacity-90"
-                style={{ backgroundColor: theme.primaryColor }}
-              >
-                <Shield className="w-5 h-5" />
-                Continue with WorkOS
-              </button>
+              {/* Error Alert */}
+              {error && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              )}
 
-              <div className="relative my-8">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200" />
+              {/* Email/Password Form */}
+              <form onSubmit={handleEmailLogin} className="space-y-4">
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="email"
+                      id="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@company.com"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-500 outline-none"
+                    />
+                  </div>
                 </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-white text-gray-500">or continue with</span>
+                <div>
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      id="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-500 outline-none"
+                    />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
                 </div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full flex items-center justify-center gap-3 px-6 py-3.5 text-white rounded-xl font-semibold transition-all shadow-lg hover:opacity-90 disabled:opacity-70"
+                  style={{ backgroundColor: theme.primaryColor }}
+                >
+                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Mail className="w-5 h-5" /> Sign In</>}
+                </button>
+              </form>
+
+              {/* Sign Up Link */}
+              <div className="mt-6 text-center">
+                <p className="text-sm text-gray-600">
+                  Don&apos;t have an account?{' '}
+                  <Link href="/signup" className="font-medium hover:underline" style={{ color: theme.primaryColor }}>
+                    Sign up
+                  </Link>
+                </p>
               </div>
 
-              {/* SSO Options */}
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={login}
-                  className="flex items-center justify-center gap-2 px-4 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24">
-                    <path
-                      fill="#4285F4"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    />
-                  </svg>
-                  <span className="text-sm font-medium text-gray-700">Google</span>
-                </button>
-
-                <button
-                  onClick={login}
-                  className="flex items-center justify-center gap-2 px-4 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="#00A4EF">
-                    <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zM24 11.4H12.6V0H24v11.4z" />
-                  </svg>
-                  <span className="text-sm font-medium text-gray-700">Microsoft</span>
-                </button>
-              </div>
-
-              <p className="text-xs text-center text-gray-500 mt-8">
+              <p className="text-xs text-center text-gray-500 mt-6">
                 By signing in, you agree to our{' '}
-                <a href="#" className="hover:underline" style={{ color: theme.primaryColor }}>
-                  Terms of Service
-                </a>{' '}
-                and{' '}
-                <a href="#" className="hover:underline" style={{ color: theme.primaryColor }}>
-                  Privacy Policy
-                </a>
+                <a href="#" className="hover:underline" style={{ color: theme.primaryColor }}>Terms of Service</a>{' '}and{' '}
+                <a href="#" className="hover:underline" style={{ color: theme.primaryColor }}>Privacy Policy</a>
               </p>
             </div>
 
             {/* Demo Notice */}
             <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-              <p className="text-sm text-amber-800 text-center">
-                <strong>Demo Mode:</strong> Click any sign-in button to access the portal with a demo account.
+              <p className="text-sm text-amber-800 text-center mb-3">
+                <strong>Demo Mode:</strong> Try the portal without credentials
               </p>
+              <button
+                onClick={handleDemoLogin}
+                disabled={isSubmitting}
+                className="w-full px-4 py-2.5 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition-colors disabled:opacity-50"
+              >
+                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Enter Demo Mode'}
+              </button>
             </div>
           </div>
         </div>
