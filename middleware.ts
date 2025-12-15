@@ -4,11 +4,15 @@
  * Handles authentication and authorization using Supabase Auth.
  * Protected routes require valid session and learner role.
  *
- * IMPORTANT: This middleware is DISABLED when:
- * 1. Supabase credentials are not configured (demo mode)
- * 2. The app is running in demo/development mode
+ * AUTHENTICATION STRATEGY:
+ * 1. Company-specific routes (/pwc, /rt, etc.) - Client-side auth via AuthContext
+ * 2. Root path (/) - Client-side auth via AuthContext
+ * 3. Both support demo mode (localStorage) and real Supabase auth
  *
- * Client-side auth (AuthContext) handles demo mode via localStorage.
+ * The middleware primarily:
+ * - Adds security headers to all responses
+ * - Refreshes Supabase session cookies when present
+ * - Does NOT block routes - client-side handles redirects
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -25,97 +29,51 @@ const IS_SUPABASE_CONFIGURED = !!(
   SUPABASE_URL.includes('.supabase.co')
 );
 
-// Portal configuration
-const LOGIN_PATH = '/login';
-const HOME_PATH = '/';
-
-// Allowed roles for this portal
-const ALLOWED_ROLES = ['learner', 'team_lead', 'manager', 'company_admin'];
-
-// Public paths that don't require authentication
-const PUBLIC_PATHS = [
-  '/login',
-  '/signup',
-  '/reset-password',
-  '/verify-email',
-  '/api/auth',
+// Public paths that should skip all processing
+const STATIC_PATHS = [
   '/_next',
   '/favicon.ico',
   '/manifest.json',
   '/sw.js',
   '/icons',
-  '/offline.html',
 ];
 
-// Auth paths that should redirect to home if authenticated
-const AUTH_PATHS = ['/login', '/signup'];
-
 /**
- * Check if path is public
+ * Check if path is a static asset
  */
-function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.some((path) => {
-    if (path.endsWith('*')) {
-      return pathname.startsWith(path.slice(0, -1));
-    }
-    return pathname === path || pathname.startsWith(`${path}/`);
-  });
-}
-
-/**
- * Check if path is an auth path
- */
-function isAuthPath(pathname: string): boolean {
-  return AUTH_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
-}
-
-/**
- * Check if path matches a company slug pattern (e.g., /pwc, /rt, /accenture)
- * These are dynamic routes that should be allowed through for client-side auth
- */
-function isCompanySlugPath(pathname: string): boolean {
-  // Match paths like /pwc, /rt, /accenture but not /login, /signup, etc.
-  const parts = pathname.split('/').filter(Boolean);
-  if (parts.length === 0) return false;
-
-  const firstPart = parts[0];
-  // If it's not a known route, assume it's a company slug
-  const knownRoutes = ['login', 'signup', 'api', '_next', 'dashboard', 'courses', 'profile', 'settings'];
-  return !knownRoutes.includes(firstPart);
+function isStaticPath(pathname: string): boolean {
+  return STATIC_PATHS.some((path) => pathname.startsWith(path));
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Add security headers to all responses
-  const response = NextResponse.next({
+  // Skip static assets entirely
+  if (isStaticPath(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Create response with security headers
+  let response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   });
+
+  // Add security headers to all responses
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 
-  // If Supabase is not configured, skip all auth checks
-  // Demo mode handles auth via localStorage in client-side code
+  // If Supabase is not configured, just return with security headers
   if (!IS_SUPABASE_CONFIGURED) {
     return response;
   }
 
-  // Skip public paths
-  if (isPublicPath(pathname)) {
-    return response;
-  }
-
-  // Allow company slug paths through - client-side auth will handle
-  // This supports routes like /pwc, /rt/login, etc.
-  if (isCompanySlugPath(pathname)) {
-    return response;
-  }
-
-  // Create Supabase client with cookie handling
+  // Create Supabase client for session refresh
+  // This ensures the session cookie stays fresh
   const supabase = createServerClient(
     SUPABASE_URL!,
     SUPABASE_ANON_KEY!,
@@ -127,6 +85,20 @@ export async function middleware(request: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             request.cookies.set(name, value);
+          });
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          });
+          // Re-add security headers after creating new response
+          response.headers.set('X-Frame-Options', 'DENY');
+          response.headers.set('X-Content-Type-Options', 'nosniff');
+          response.headers.set('X-XSS-Protection', '1; mode=block');
+          response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+          response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+
+          cookiesToSet.forEach(({ name, value, options }) => {
             response.cookies.set(name, value, options);
           });
         },
@@ -134,57 +106,19 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Get session
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  // Refresh the session - this is important for keeping the session alive
+  // and properly syncing server/client auth state
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
 
-  // If no session and not public path, redirect to login
-  if (!session || sessionError) {
-    // If on auth path, allow through
-    if (isAuthPath(pathname)) {
-      return response;
+    // If there's a session, add user info to headers for server components
+    if (session?.user) {
+      response.headers.set('x-user-id', session.user.id);
+      response.headers.set('x-user-email', session.user.email || '');
     }
-
-    // Redirect to login with return URL
-    const loginUrl = new URL(LOGIN_PATH, request.url);
-    loginUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // If authenticated and on auth path, redirect to home
-  if (isAuthPath(pathname)) {
-    return NextResponse.redirect(new URL(HOME_PATH, request.url));
-  }
-
-  // Get user profile to check role
-  const { data: userProfile } = await supabase
-    .from('users')
-    .select('role, status, is_active, company_id')
-    .eq('id', session.user.id)
-    .single();
-
-  // Check if user exists and is active
-  if (!userProfile || !userProfile.is_active || userProfile.status !== 'active') {
-    // Sign out and redirect to login
-    await supabase.auth.signOut();
-    const loginUrl = new URL(LOGIN_PATH, request.url);
-    loginUrl.searchParams.set('error', 'account_disabled');
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // Check role authorization
-  if (!ALLOWED_ROLES.includes(userProfile.role)) {
-    // User doesn't have access to this portal
-    await supabase.auth.signOut();
-    const loginUrl = new URL(LOGIN_PATH, request.url);
-    loginUrl.searchParams.set('error', 'portal_access_denied');
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // Add user info to headers for downstream use
-  response.headers.set('x-user-id', session.user.id);
-  response.headers.set('x-user-role', userProfile.role);
-  if (userProfile.company_id) {
-    response.headers.set('x-company-id', userProfile.company_id);
+  } catch (error) {
+    // Session refresh failed - not critical, client will handle
+    console.error('[Middleware] Session refresh error:', error);
   }
 
   return response;

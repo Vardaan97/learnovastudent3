@@ -22,7 +22,26 @@ export default function SignUpPage() {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
+    // Only redirect if user has a real Supabase session (not demo mode)
+    // This allows users to sign up even after trying demo mode
     if (isAuthenticated && !isLoading) {
+      // Check if this is a demo user - if so, don't redirect, let them sign up
+      const storedUser = localStorage.getItem('koenig_learner_user');
+      if (storedUser) {
+        try {
+          const user = JSON.parse(storedUser);
+          if (user.id?.startsWith('demo')) {
+            // Clear demo user so they can sign up
+            localStorage.removeItem('koenig_learner_user');
+            // Force reload to reset auth state
+            window.location.reload();
+            return;
+          }
+        } catch {
+          // Invalid stored user, ignore
+        }
+      }
+      // Real authenticated user - redirect to dashboard
       router.push('/');
     }
   }, [isAuthenticated, isLoading, router]);
