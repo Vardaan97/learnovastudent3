@@ -19,6 +19,22 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
+      // Check if this is a demo user - if so, allow them to stay on login page
+      // to sign in with real credentials
+      const storedUser = localStorage.getItem('koenig_learner_user');
+      if (storedUser) {
+        try {
+          const user = JSON.parse(storedUser);
+          if (user.id?.startsWith('demo')) {
+            // Don't redirect demo users - they're here to login as real user
+            console.log('[Login] Demo user on login page, not redirecting');
+            return;
+          }
+        } catch {
+          // Invalid stored user, ignore
+        }
+      }
+      // Real authenticated user - redirect to dashboard
       router.push('/');
     }
   }, [isAuthenticated, isLoading, router]);
@@ -37,9 +53,24 @@ export default function LoginPage() {
     console.log('[Login Page] Attempting login for:', email);
 
     try {
+      // Clear demo user before attempting real login
+      const storedUser = localStorage.getItem('koenig_learner_user');
+      if (storedUser) {
+        try {
+          const user = JSON.parse(storedUser);
+          if (user.id?.startsWith('demo')) {
+            console.log('[Login Page] Clearing demo user before real login');
+            localStorage.removeItem('koenig_learner_user');
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
+
       await login(email, password);
       console.log('[Login Page] Login successful, redirecting...');
-      // Auth state change will trigger redirect via useEffect
+      // Use hard redirect to ensure clean state
+      window.location.href = '/';
     } catch (err) {
       console.error('[Login Page] Login error:', err);
       setError(err instanceof Error ? err.message : 'Login failed. Please check your credentials.');
