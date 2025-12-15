@@ -34,10 +34,14 @@ export default function LoginPage() {
     }
 
     setIsSubmitting(true);
+    console.log('[Login Page] Attempting login for:', email);
 
     try {
       await login(email, password);
+      console.log('[Login Page] Login successful, redirecting...');
+      // Auth state change will trigger redirect via useEffect
     } catch (err) {
+      console.error('[Login Page] Login error:', err);
       setError(err instanceof Error ? err.message : 'Login failed. Please check your credentials.');
     } finally {
       setIsSubmitting(false);
@@ -48,13 +52,16 @@ export default function LoginPage() {
   const handleDemoLogin = async () => {
     setError(null);
     setIsSubmitting(true);
+    console.log('[Login Page] Entering demo mode...');
 
     try {
       await loginAsDemo();
-      router.push('/');
+      console.log('[Login Page] Demo mode activated, redirecting...');
+      // Use window.location for a hard redirect to ensure state is picked up
+      window.location.href = '/';
     } catch (err) {
+      console.error('[Login Page] Demo mode error:', err);
       setError(err instanceof Error ? err.message : 'Demo login failed. Please try again.');
-    } finally {
       setIsSubmitting(false);
     }
   };

@@ -91,14 +91,17 @@ export default function SignUpPage() {
               <CheckCircle className="w-8 h-8 text-green-600" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Created!</h2>
-            <p className="text-gray-600 mb-6">
-              Your account has been created successfully. You can now sign in with your credentials.
+            <p className="text-gray-600 mb-4">
+              Your account has been created successfully.
+            </p>
+            <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-lg mb-6">
+              Please check your email inbox for a confirmation link before signing in. If you don&apos;t see it, check your spam folder.
             </p>
             <Link
               href="/login"
               className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-xl font-semibold hover:from-cyan-700 hover:to-blue-700 transition-all"
             >
-              Sign In Now
+              Go to Sign In
             </Link>
           </div>
         </div>

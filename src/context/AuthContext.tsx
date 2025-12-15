@@ -69,23 +69,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Initialize auth state
   useEffect(() => {
     const initAuth = async () => {
-      if (!isSupabaseConfigured()) {
-        // Demo mode - check localStorage
-        try {
-          const storedUser = localStorage.getItem(USER_STORAGE_KEY);
-          if (storedUser) {
-            setUser(JSON.parse(storedUser));
+      console.log('[Auth] initAuth called, isSupabaseConfigured:', isSupabaseConfigured());
+
+      // Always check localStorage first for demo user (works even with Supabase configured)
+      try {
+        const storedUser = localStorage.getItem(USER_STORAGE_KEY);
+        console.log('[Auth] Stored user from localStorage:', storedUser);
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          // Check if it's a demo user (id starts with 'demo')
+          if (parsedUser.id?.startsWith('demo')) {
+            console.log('[Auth] Found demo user, setting user state');
+            setUser(parsedUser);
+            setIsLoading(false);
+            return;
           }
-        } catch (error) {
-          console.error('Error checking demo session:', error);
         }
+      } catch (error) {
+        console.error('[Auth] Error checking localStorage:', error);
+      }
+
+      if (!isSupabaseConfigured()) {
+        console.log('[Auth] Supabase not configured, demo mode only');
         setIsLoading(false);
         return;
       }
 
       // Real Supabase mode
       try {
+        console.log('[Auth] Checking Supabase session...');
         const { data: { session: currentSession } } = await supabase.auth.getSession();
+        console.log('[Auth] Current session:', currentSession?.user?.email || 'none');
         setSession(currentSession);
 
         if (currentSession?.user) {
@@ -93,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(transformUser(currentSession.user, profile));
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        console.error('[Auth] Error initializing auth:', error);
       } finally {
         setIsLoading(false);
       }
@@ -120,31 +134,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Login with email/password
   const login = useCallback(async (email: string, password: string) => {
+    console.log('[Auth] login called for:', email);
+    console.log('[Auth] isSupabaseConfigured:', isSupabaseConfigured());
+
     // Check if Supabase is configured
     if (!isSupabaseConfigured()) {
-      throw new Error('Please use "Enter Demo Mode" button or configure Supabase credentials.');
+      console.log('[Auth] Supabase not configured, throwing error');
+      throw new Error('Supabase is not configured. Please use "Enter Demo Mode" to explore the app.');
     }
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      console.log('[Auth] Calling Supabase signInWithPassword...');
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
+      console.log('[Auth] Supabase login response:', { data, error });
+
       if (error) {
-        // Handle specific error types
-        if (error.message?.includes('fetch') || error.message?.includes('network') || error.message === 'Load failed') {
-          throw new Error('Unable to connect to server. Please check your internet connection and try again.');
-        }
+        console.error('[Auth] Supabase login error:', error.message, error);
+        // Handle specific error types - check for known errors first
         if (error.message?.includes('Invalid login credentials')) {
           throw new Error('Invalid email or password. Please check your credentials and try again.');
         }
-        throw error;
+        if (error.message?.includes('Email not confirmed')) {
+          throw new Error('Please verify your email before logging in. Check your inbox for a confirmation link.');
+        }
+        // For any other error, show the actual error message for debugging
+        throw new Error(error.message || 'Login failed. Please try again.');
       }
+
+      if (!data.session || !data.user) {
+        throw new Error('Login succeeded but no session was created. Please try again.');
+      }
+
+      console.log('[Auth] Login successful, user:', data.user.email);
     } catch (err) {
-      // Convert generic errors to user-friendly messages
+      console.error('[Auth] Login catch block:', err);
+      // Re-throw if already an Error with message
       if (err instanceof Error) {
-        if (err.message === 'Load failed' || err.message?.includes('fetch')) {
+        // Check for network-specific errors at the catch level
+        const errorMsg = err.message.toLowerCase();
+        if (errorMsg === 'load failed' ||
+            errorMsg.includes('failed to fetch') ||
+            errorMsg.includes('networkerror') ||
+            errorMsg.includes('network request failed') ||
+            errorMsg.includes('cors')) {
           throw new Error('Unable to connect to server. Please check your internet connection and try again.');
         }
         throw err;
@@ -153,18 +189,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Login as demo user (always works, uses localStorage)
+  // Login as demo user (always works, uses localStorage - bypasses Supabase completely)
   const loginAsDemo = useCallback(async () => {
-    const mockUser: User = {
-      id: 'demo-user-001',
-      email: 'demo@koenig.com',
-      firstName: 'Demo',
-      lastName: 'User',
-      organizationId: '11111111-1111-1111-1111-111111111111',
-      role: 'learner',
-    };
-    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(mockUser));
-    setUser(mockUser);
+    console.log('[Auth] loginAsDemo called');
+    try {
+      const mockUser: User = {
+        id: 'demo-user-001',
+        email: 'demo@koenig.com',
+        firstName: 'Demo',
+        lastName: 'User',
+        organizationId: '11111111-1111-1111-1111-111111111111',
+        role: 'learner',
+      };
+
+      // Store in localStorage first
+      console.log('[Auth] Storing demo user in localStorage...');
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(mockUser));
+
+      // Verify it was stored
+      const stored = localStorage.getItem(USER_STORAGE_KEY);
+      console.log('[Auth] Verified localStorage:', stored);
+
+      // Set user state
+      setUser(mockUser);
+      console.log('[Auth] Demo user set successfully:', mockUser);
+
+      // Return a promise that resolves after a tick to ensure state is set
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+    } catch (err) {
+      console.error('[Auth] Error in loginAsDemo:', err);
+      throw new Error('Failed to enter demo mode. Please try again.');
+    }
   }, []);
 
   // Login with OAuth
