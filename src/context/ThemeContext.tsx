@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { companyService, isSupabaseConfigured } from '@/lib/supabase';
 
 export interface CompanyTheme {
   id: string;
@@ -14,6 +15,28 @@ export interface CompanyTheme {
   welcomeMessage: string;
   supportEmail: string;
   customBranding: boolean;
+  // Feature flags from Sales Portal settings
+  features?: {
+    courseContent?: boolean;
+    quizzes?: boolean;
+    qubits?: boolean;
+    certificates?: boolean;
+    aiAssistant?: boolean;
+    studyGroups?: boolean;
+    forum?: boolean;
+    liveSessions?: boolean;
+    analytics?: boolean;
+    gamification?: boolean;
+    flashcards?: boolean;
+    mindMaps?: boolean;
+    focusMode?: boolean;
+    calendar?: boolean;
+    examSimulator?: boolean;
+    weakAreaDrills?: boolean;
+    progressSharing?: boolean;
+    leaderboards?: boolean;
+    customReporting?: boolean;
+  };
 }
 
 const defaultTheme: CompanyTheme = {
@@ -60,7 +83,7 @@ export function isDemoCompany(slug: string | null): boolean {
   return DEMO_COMPANIES.includes(slug.toLowerCase() as typeof DEMO_COMPANIES[number]);
 }
 
-// Generate a dynamic theme for unknown companies
+// Generate a dynamic theme for unknown companies (fallback)
 function generateDynamicTheme(slug: string): CompanyTheme {
   const name = slug.charAt(0).toUpperCase() + slug.slice(1);
   return {
@@ -75,6 +98,58 @@ function generateDynamicTheme(slug: string): CompanyTheme {
     welcomeMessage: `Welcome to ${name} Learning Portal`,
     supportEmail: `support@${slug}.com`,
     customBranding: true,
+    features: {
+      courseContent: true,
+      quizzes: true,
+      qubits: true,
+      certificates: true,
+      aiAssistant: true,
+      gamification: true,
+      flashcards: true,
+      focusMode: true,
+      calendar: true,
+    },
+  };
+}
+
+// Convert Supabase company data to CompanyTheme
+function companyToTheme(company: Record<string, unknown>): CompanyTheme {
+  const branding = (company.branding as Record<string, unknown>) || {};
+  const features = (company.features as Record<string, boolean>) || {};
+
+  return {
+    id: company.slug as string || company.id as string,
+    name: company.name as string || 'Learning Portal',
+    logo: branding.logoUrl as string || `/logos/${company.slug}.png`,
+    primaryColor: branding.primaryColor as string || '#0891b2',
+    secondaryColor: branding.secondaryColor as string || '#0e7490',
+    accentColor: branding.accentColor as string || '#06b6d4',
+    headerBg: branding.headerBg as string || '#ffffff',
+    buttonStyle: (branding.buttonStyle as 'rounded' | 'pill' | 'square') || 'pill',
+    welcomeMessage: branding.welcomeTitle as string || `Welcome to ${company.name} Learning Portal`,
+    supportEmail: company.support_email as string || `support@${company.slug}.com`,
+    customBranding: true,
+    features: {
+      courseContent: features.courseContent !== false,
+      quizzes: features.quizzes !== false,
+      qubits: features.qubits !== false,
+      certificates: features.certificates !== false,
+      aiAssistant: features.aiAssistant !== false,
+      studyGroups: features.studyGroups || false,
+      forum: features.forum || false,
+      liveSessions: features.liveSessions || false,
+      analytics: features.analytics !== false,
+      gamification: features.gamification !== false,
+      flashcards: features.flashcards !== false,
+      mindMaps: features.mindMaps || false,
+      focusMode: features.focusMode !== false,
+      calendar: features.calendar !== false,
+      examSimulator: features.examSimulator || false,
+      weakAreaDrills: features.weakAreaDrills || false,
+      progressSharing: features.progressSharing || false,
+      leaderboards: features.leaderboards || false,
+      customReporting: features.customReporting || false,
+    },
   };
 }
 
@@ -121,40 +196,72 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [companySlug, setCompanySlug] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
+  // Load company theme from Supabase
+  const loadCompanyFromSupabase = useCallback(async (slug: string): Promise<CompanyTheme | null> => {
+    if (!isSupabaseConfigured()) {
+      console.log('[Theme] Supabase not configured, skipping database lookup');
+      return null;
+    }
+
+    try {
+      const company = await companyService.getBySlug(slug);
+      if (company) {
+        console.log('[Theme] Loaded company from Supabase:', company.name);
+        return companyToTheme(company);
+      }
+    } catch (error) {
+      console.error('[Theme] Error loading company from Supabase:', error);
+    }
+    return null;
+  }, []);
+
   // Initialize theme from URL on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Get company slug from URL path (e.g., student.learnova.training/rt)
-    const urlSlug = getCompanySlugFromUrl();
+    const initializeTheme = async () => {
+      // Get company slug from URL path (e.g., student.learnova.training/rt)
+      const urlSlug = getCompanySlugFromUrl();
 
-    // Check localStorage as fallback
-    const savedCompany = localStorage.getItem('company_theme');
+      // Check localStorage as fallback
+      const savedCompany = localStorage.getItem('company_theme');
 
-    const effectiveSlug = urlSlug || savedCompany || null;
+      const effectiveSlug = urlSlug || savedCompany || null;
 
-    if (effectiveSlug) {
-      setCompanySlug(effectiveSlug);
+      if (effectiveSlug) {
+        setCompanySlug(effectiveSlug);
 
-      // Use predefined theme if available, otherwise generate dynamic theme
-      if (companyThemes[effectiveSlug]) {
-        setTheme(companyThemes[effectiveSlug]);
+        // First check predefined themes
+        if (companyThemes[effectiveSlug]) {
+          setTheme(companyThemes[effectiveSlug]);
+          console.log('[Theme] Using predefined theme:', effectiveSlug);
+        } else {
+          // Try to load from Supabase (for companies created in Sales Portal)
+          const supabaseTheme = await loadCompanyFromSupabase(effectiveSlug);
+          if (supabaseTheme) {
+            setTheme(supabaseTheme);
+            console.log('[Theme] Using Supabase theme:', effectiveSlug);
+          } else {
+            // Fallback to dynamically generated theme
+            setTheme(generateDynamicTheme(effectiveSlug));
+            console.log('[Theme] Using dynamic theme:', effectiveSlug);
+          }
+        }
+
+        // Save to localStorage for persistence
+        localStorage.setItem('company_theme', effectiveSlug);
       } else {
-        setTheme(generateDynamicTheme(effectiveSlug));
+        // Default to PWC theme for demo purposes
+        setTheme(pwcTheme);
+        setCompanySlug('pwc');
+        console.log('[Theme] No company detected, using default PWC theme');
       }
 
-      // Save to localStorage for persistence
-      localStorage.setItem('company_theme', effectiveSlug);
-      console.log('[Theme] Company detected from URL:', effectiveSlug);
-    } else {
-      // Default to PWC theme for demo purposes
-      setTheme(pwcTheme);
-      setCompanySlug('pwc');
-      console.log('[Theme] No company detected, using default PWC theme');
-    }
+      setIsInitialized(true);
+    };
 
-    setIsInitialized(true);
-  }, []);
+    initializeTheme();
+  }, [loadCompanyFromSupabase]);
 
   // Apply CSS variables when theme changes
   useEffect(() => {
@@ -165,17 +272,23 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     document.documentElement.style.setProperty('--accent-color', theme.accentColor);
   }, [theme, isInitialized]);
 
-  const setCompany = useCallback((companyId: string) => {
+  const setCompany = useCallback(async (companyId: string) => {
     setCompanySlug(companyId);
 
     if (companyThemes[companyId]) {
       setTheme(companyThemes[companyId]);
     } else {
-      setTheme(generateDynamicTheme(companyId));
+      // Try to load from Supabase first
+      const supabaseTheme = await loadCompanyFromSupabase(companyId);
+      if (supabaseTheme) {
+        setTheme(supabaseTheme);
+      } else {
+        setTheme(generateDynamicTheme(companyId));
+      }
     }
 
     localStorage.setItem('company_theme', companyId);
-  }, []);
+  }, [loadCompanyFromSupabase]);
 
   return (
     <ThemeContext.Provider
