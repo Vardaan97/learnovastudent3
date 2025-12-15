@@ -3,15 +3,31 @@
  *
  * Handles authentication and authorization using Supabase Auth.
  * Protected routes require valid session and learner role.
+ *
+ * IMPORTANT: This middleware is DISABLED when:
+ * 1. Supabase credentials are not configured (demo mode)
+ * 2. The app is running in demo/development mode
+ *
+ * Client-side auth (AuthContext) handles demo mode via localStorage.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
+// Check if Supabase is properly configured
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const IS_SUPABASE_CONFIGURED = !!(
+  SUPABASE_URL &&
+  SUPABASE_ANON_KEY &&
+  SUPABASE_URL !== 'your-project-url' &&
+  !SUPABASE_URL.includes('example') &&
+  SUPABASE_URL.includes('.supabase.co')
+);
+
 // Portal configuration
-const PORTAL = 'learner';
 const LOGIN_PATH = '/login';
-const HOME_PATH = '/dashboard';
+const HOME_PATH = '/';
 
 // Allowed roles for this portal
 const ALLOWED_ROLES = ['learner', 'team_lead', 'manager', 'company_admin'];
@@ -53,25 +69,56 @@ function isAuthPath(pathname: string): boolean {
   return AUTH_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
+/**
+ * Check if path matches a company slug pattern (e.g., /pwc, /rt, /accenture)
+ * These are dynamic routes that should be allowed through for client-side auth
+ */
+function isCompanySlugPath(pathname: string): boolean {
+  // Match paths like /pwc, /rt, /accenture but not /login, /signup, etc.
+  const parts = pathname.split('/').filter(Boolean);
+  if (parts.length === 0) return false;
+
+  const firstPart = parts[0];
+  // If it's not a known route, assume it's a company slug
+  const knownRoutes = ['login', 'signup', 'api', '_next', 'dashboard', 'courses', 'profile', 'settings'];
+  return !knownRoutes.includes(firstPart);
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip public paths
-  if (isPublicPath(pathname)) {
-    return NextResponse.next();
-  }
-
-  // Create response that we can modify
-  let response = NextResponse.next({
+  // Add security headers to all responses
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   });
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-XSS-Protection', '1; mode=block');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  // If Supabase is not configured, skip all auth checks
+  // Demo mode handles auth via localStorage in client-side code
+  if (!IS_SUPABASE_CONFIGURED) {
+    return response;
+  }
+
+  // Skip public paths
+  if (isPublicPath(pathname)) {
+    return response;
+  }
+
+  // Allow company slug paths through - client-side auth will handle
+  // This supports routes like /pwc, /rt/login, etc.
+  if (isCompanySlugPath(pathname)) {
+    return response;
+  }
 
   // Create Supabase client with cookie handling
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    SUPABASE_URL!,
+    SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {
@@ -80,11 +127,6 @@ export async function middleware(request: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             request.cookies.set(name, value);
-            response = NextResponse.next({
-              request: {
-                headers: request.headers,
-              },
-            });
             response.cookies.set(name, value, options);
           });
         },
@@ -144,12 +186,6 @@ export async function middleware(request: NextRequest) {
   if (userProfile.company_id) {
     response.headers.set('x-company-id', userProfile.company_id);
   }
-
-  // Add security headers
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('X-XSS-Protection', '1; mode=block');
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   return response;
 }
