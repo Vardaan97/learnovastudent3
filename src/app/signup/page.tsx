@@ -60,9 +60,12 @@ export default function SignUpPage() {
     setIsSubmitting(true);
 
     try {
+      console.log('[SignUp] Attempting to sign up:', email);
       await signUp(email, password, { firstName, lastName });
+      console.log('[SignUp] Success!');
       setSuccess(true);
     } catch (err) {
+      console.error('[SignUp] Error:', err);
       setError(err instanceof Error ? err.message : 'Sign up failed. Please try again.');
     } finally {
       setIsSubmitting(false);

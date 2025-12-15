@@ -188,7 +188,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     metadata?: { firstName?: string; lastName?: string }
   ) => {
     // Check if Supabase is configured
+    console.log('[Auth] isSupabaseConfigured:', isSupabaseConfigured());
+
     if (!isSupabaseConfigured()) {
+      console.log('[Auth] Demo mode - creating mock user');
       // Demo mode - create a mock user and auto-login
       const mockUser: User = {
         id: `demo-${Date.now()}`,
@@ -204,6 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
+      console.log('[Auth] Calling Supabase signUp...');
       // Sign up the user with Supabase
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -216,7 +220,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
 
+      console.log('[Auth] Supabase signUp response:', { data, error });
+
       if (error) {
+        console.error('[Auth] Supabase error:', error.message, error);
         // Handle specific error types
         if (error.message?.includes('fetch') || error.message?.includes('network') || error.message?.includes('Load failed')) {
           throw new Error('Network error. Please check your connection and try again.');
