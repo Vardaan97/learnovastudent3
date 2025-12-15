@@ -62,7 +62,7 @@ export default function ModuleList({ modules, onPlayLesson, onStartQuiz }: Modul
       case 'in_progress':
         return (
           <span className="px-2.5 py-1 bg-cyan-100 text-cyan-700 text-xs font-medium rounded-full">
-            {progress}% Complete
+            {Math.round(progress)}% Complete
           </span>
         );
       case 'locked':
@@ -248,7 +248,7 @@ function LessonItem({ lesson, onPlay }: { lesson: Lesson; onPlay: () => void }) 
                 style={{ width: `${lesson.progress}%` }}
               />
             </div>
-            <span className="text-xs text-gray-500">{lesson.progress}%</span>
+            <span className="text-xs text-gray-500">{Math.round(lesson.progress)}%</span>
           </div>
         )}
       </div>

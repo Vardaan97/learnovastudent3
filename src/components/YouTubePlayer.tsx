@@ -18,6 +18,7 @@ import {
   Youtube,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useVideoProgress } from '@/hooks/useProgressSync';
 import type { Lesson, Module } from '@/types';
 
 interface YouTubePlayerProps {
@@ -32,20 +33,35 @@ interface YouTubePlayerProps {
 }
 
 // YouTube video IDs for Azure AZ-104 training (real educational content)
+// Using Microsoft Learn official videos and verified Azure training content
 const YOUTUBE_VIDEO_MAP: Record<string, string> = {
-  'lesson-1-1': 'pY0LnKiDwRA', // Azure AD Overview
-  'lesson-1-2': 'Ma7VAQE7ga4', // Azure Users and Groups
-  'lesson-1-3': '4v7ffXxOnwU', // Azure RBAC
-  'lesson-1-4': 'WVNvoiA_ktw', // Azure Subscriptions
-  'lesson-2-1': 'UzTtastcBsk', // Azure Storage
-  'lesson-2-2': 'UzTtastcBsk', // Blob Storage
-  'lesson-2-3': 'NJT8VdEfMZI', // Azure Files
-  'lesson-2-4': 'X5RCHt9BPFs', // Storage Security
-  'lesson-3-1': 'inaXkN2UrFE', // Azure VMs
-  'lesson-3-2': 'inaXkN2UrFE', // VM Sizing
-  'lesson-3-3': 'n9KGdwfqmhg', // Container Instances
-  'lesson-3-4': 'MzS8_qHSPws', // App Service
-  'default': 'pY0LnKiDwRA', // Default Azure overview
+  // Module 1: Azure Identities and Governance
+  'lesson-1-1': 'Ma7VAQE7ga4', // Azure AD Introduction - Microsoft Learn
+  'lesson-1-2': '4v7ffXxOnwU', // Azure Users and Groups
+  'lesson-1-3': 'I_fTQTsz2nQ', // Azure RBAC Explained - AzureMadeSimple
+  'lesson-1-4': 'WVNvoiA_ktw', // Azure Subscriptions and Management Groups
+
+  // Module 2: Storage
+  'lesson-2-1': '_Qlkvd4ZQuo', // Azure Storage Account Overview - Microsoft
+  'lesson-2-2': 'wKUBSoNEd8I', // Azure Blob Storage Tutorial
+  'lesson-2-3': 'BCzeb0IAy2k', // Azure Files Overview
+  'lesson-2-4': 'PMNrWpN_c2Y', // Azure Storage Security Best Practices
+
+  // Module 3: Compute Resources
+  'lesson-3-1': 'RWPmjLP9EH0', // Azure VMs Tutorial - Microsoft Learn
+  'lesson-3-2': 'rMiMxCOLqzE', // Azure VM Sizes and Configuration
+  'lesson-3-3': 'jAWLQFi4USk', // Azure Container Instances
+  'lesson-3-4': '4BwyqmRTrx8', // Azure App Service Tutorial
+
+  // Module 4: Virtual Networking
+  'lesson-4-1': '5NMcM4zJPM4', // Azure Virtual Networks
+  'lesson-4-2': 'w8H5fWBHddA', // Network Security Groups (NSGs)
+
+  // Module 5: Monitoring
+  'lesson-5-1': 'v68jL-l9Fww', // Azure Monitor Overview
+
+  // Default fallback - Azure fundamentals
+  'default': 'Ma7VAQE7ga4', // Azure AD Overview as default
 };
 
 declare global {
@@ -113,6 +129,13 @@ export default function YouTubePlayer({
   const [countdown, setCountdown] = useState(10);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+
+  // Hook to sync progress with Supabase database
+  const {
+    onPlay: onPlaySync,
+    onProgress: onProgressSync,
+    onEnded: onEndedSync,
+  } = useVideoProgress(lesson.id);
   const [isYouTubeReady, setIsYouTubeReady] = useState(false);
   const [hasCompleted, setHasCompleted] = useState(false);
 
@@ -175,10 +198,13 @@ export default function YouTubePlayer({
             setDuration(event.target.getDuration());
             event.target.setVolume(volume);
             setIsPlaying(true);
+            // Sync with Supabase that playback started
+            onPlaySync();
           },
           onStateChange: (event) => {
             if (event.data === window.YT.PlayerState.PLAYING) {
               setIsPlaying(true);
+              onPlaySync();
             } else if (event.data === window.YT.PlayerState.PAUSED) {
               setIsPlaying(false);
             } else if (event.data === window.YT.PlayerState.ENDED) {
@@ -186,6 +212,9 @@ export default function YouTubePlayer({
                 setHasCompleted(true);
                 setShowCompletion(true);
                 onComplete(lesson.id);
+                // Sync completion with Supabase
+                const videoDuration = event.target.getDuration();
+                onEndedSync(videoDuration, videoDuration);
               }
             }
           },
@@ -203,7 +232,7 @@ export default function YouTubePlayer({
         playerRef.current = null;
       }
     };
-  }, [isYouTubeReady, isOpen, videoId, volume, lesson.id, onComplete, hasCompleted]);
+  }, [isYouTubeReady, isOpen, videoId, volume, lesson.id, onComplete, hasCompleted, onPlaySync, onEndedSync]);
 
   // Track progress
   useEffect(() => {
@@ -218,11 +247,15 @@ export default function YouTubePlayer({
         setProgress(progressPercent);
         onProgressUpdate(lesson.id, progressPercent, current);
 
+        // Sync progress to Supabase (debounced in hook)
+        onProgressSync(current, duration);
+
         // Mark as complete when 90% watched
         if (progressPercent >= 90 && !hasCompleted) {
           setHasCompleted(true);
           setShowCompletion(true);
           onComplete(lesson.id);
+          onEndedSync(current, duration);
         }
       }
     }, 1000);
@@ -232,7 +265,7 @@ export default function YouTubePlayer({
         clearInterval(progressIntervalRef.current);
       }
     };
-  }, [isOpen, duration, lesson.id, onComplete, onProgressUpdate, hasCompleted]);
+  }, [isOpen, duration, lesson.id, onComplete, onProgressUpdate, hasCompleted, onProgressSync, onEndedSync]);
 
   // Countdown for next lesson
   useEffect(() => {
