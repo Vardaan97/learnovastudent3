@@ -840,11 +840,20 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   // NOTE: Tour should only start after user has logged in - check if on login page
   useEffect(() => {
     if (isInitialized && shouldAutoStart && !isActive) {
-      // Don't auto-start if user is on login page
+      // Don't auto-start if user is on login/signup page or not authenticated
       if (typeof window !== 'undefined') {
         const pathname = window.location.pathname;
-        if (pathname === '/login' || pathname.endsWith('/login')) {
-          console.log('[Tour] Skipping auto-start - user on login page');
+        const isAuthPage = pathname === '/login' ||
+                          pathname === '/signup' ||
+                          pathname.endsWith('/login') ||
+                          pathname.endsWith('/signup');
+
+        // Also check if user is authenticated by looking for the user in localStorage
+        const storedUser = localStorage.getItem('koenig_learner_user');
+        const isAuthenticated = storedUser !== null;
+
+        if (isAuthPage || !isAuthenticated) {
+          console.log('[Tour] Skipping auto-start - user on auth page or not logged in');
           return;
         }
       }
