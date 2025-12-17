@@ -11,6 +11,7 @@
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.87.1",
+    "@vercel/analytics": "^1.6.1",
     "@workos-inc/node": "^7.77.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.560.0",
