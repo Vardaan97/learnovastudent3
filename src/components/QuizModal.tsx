@@ -13,6 +13,7 @@ import {
   Video,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useProgressSync } from '@/hooks/useProgressSync';
 import type { Quiz, QuizQuestion } from '@/types';
 
 interface QuizModalProps {
@@ -39,6 +40,10 @@ export default function QuizModal({
   const [quizState, setQuizState] = useState<QuizState>('taking');
   const [timeLeft, setTimeLeft] = useState(quiz.timeLimit ? quiz.timeLimit * 60 : 0);
   const [score, setScore] = useState(0);
+  const [quizStartTime] = useState(new Date());
+
+  // Hook for syncing quiz attempts to Supabase
+  const { saveQuizAttempt } = useProgressSync();
 
   // Timer
   useEffect(() => {
@@ -93,9 +98,24 @@ export default function QuizModal({
     });
 
     const calculatedScore = Math.round((correctCount / quiz.questions.length) * 100);
+    const passed = calculatedScore >= (quiz.passingScore || 70);
+    const durationSeconds = Math.floor((Date.now() - quizStartTime.getTime()) / 1000);
+
     setScore(calculatedScore);
     setQuizState('results');
     onSubmit(calculatedScore, answers);
+
+    // Sync quiz attempt to Supabase
+    saveQuizAttempt(
+      quiz.id,
+      calculatedScore,
+      passed,
+      quiz.questions.length,
+      correctCount,
+      answers,
+      quizStartTime,
+      durationSeconds
+    );
   };
 
   const handleRetry = () => {

@@ -20,6 +20,7 @@ import {
   FastForward,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useVideoProgress } from '@/hooks/useProgressSync';
 import type { Lesson, Module } from '@/types';
 
 interface VideoPlayerProps {
@@ -53,6 +54,14 @@ export default function VideoPlayer({
   onNextLesson,
 }: VideoPlayerProps) {
   const totalDuration = parseDuration(lesson.duration);
+
+  // Hook into Supabase progress sync
+  const {
+    onPlay: syncOnPlay,
+    onProgress: syncOnProgress,
+    onComplete: syncOnComplete,
+  } = useVideoProgress(lesson.id);
+
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(80);
@@ -82,6 +91,9 @@ export default function VideoPlayer({
   useEffect(() => {
     if (!isOpen || !isPlaying || showCompletion || isDragging) return;
 
+    // Notify Supabase sync that video is playing
+    syncOnPlay();
+
     const interval = setInterval(() => {
       setCurrentTime((prev) => {
         const newTime = Math.min(prev + (1 * playbackSpeed), totalDuration);
@@ -90,12 +102,17 @@ export default function VideoPlayer({
         setProgress(newProgress);
         onProgressUpdate(lesson.id, newProgress, newTime);
 
+        // Sync progress to Supabase (debounced in hook)
+        syncOnProgress(newTime, totalDuration);
+
         // Simulate buffering ahead
         setBuffered(Math.min(100, newProgress + 20));
 
         if (newProgress >= 100) {
           setShowCompletion(true);
           onComplete(lesson.id);
+          // Sync completion to Supabase
+          syncOnComplete();
         }
 
         return newTime;
@@ -103,7 +120,7 @@ export default function VideoPlayer({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isOpen, isPlaying, showCompletion, isDragging, lesson.id, onComplete, onProgressUpdate, playbackSpeed, totalDuration]);
+  }, [isOpen, isPlaying, showCompletion, isDragging, lesson.id, onComplete, onProgressUpdate, playbackSpeed, totalDuration, syncOnPlay, syncOnProgress, syncOnComplete]);
 
   // Countdown for next lesson
   useEffect(() => {
