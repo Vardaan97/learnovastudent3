@@ -20,9 +20,12 @@ import QubitsPracticeModal from '@/components/QubitsPracticeModal';
 import ProgressSidebar from '@/components/ProgressSidebar';
 import QubitsSection from '@/components/QubitsSection';
 import CertificateSection from '@/components/CertificateSection';
+import ResourcesSection from '@/components/ResourcesSection';
+import SupportSection from '@/components/SupportSection';
 import GamificationWidget from '@/components/GamificationWidget';
 import CelebrationOverlay from '@/components/CelebrationOverlay';
 import WIPPopup, { useWIP } from '@/components/WIPPopup';
+import { getCourseResources } from '@/data/courseResources';
 
 import { useGamification } from '@/context/GamificationContext';
 import { useAuth } from '@/context/AuthContext';
@@ -39,6 +42,7 @@ import type {
   LearnerProgress,
   LearnerProfile,
   Notification,
+  Trainer,
 } from '@/types';
 import {
   Loader2,
@@ -48,15 +52,16 @@ import {
   AlertCircle,
 } from 'lucide-react';
 
-// Default learner profile
-const defaultLearnerProfile: LearnerProfile = {
-  id: 'learner-001',
-  name: 'Demo Learner',
-  email: 'learner@koenig.com',
-  learnerId: 'DEMO-2026-001',
-  enrolledDate: new Date().toISOString().split('T')[0],
-  organization: 'Koenig Solutions',
-};
+// Helper to generate learner ID from user ID
+function generateLearnerId(userId: string): string {
+  // For demo accounts, use a cleaner format
+  if (userId.startsWith('user-demo-')) {
+    const suffix = userId.replace('user-demo-', '').toUpperCase();
+    return `DEMO-${suffix}`;
+  }
+  // For other users, use first 8 chars of ID
+  return `LRN-${userId.slice(0, 8).toUpperCase()}`;
+}
 
 export default function LearnovaCourseDashboard({
   params,
@@ -83,6 +88,36 @@ export default function LearnovaCourseDashboard({
     return user.allowedCourses.includes(courseCode);
   }, [user, courseCode]);
 
+  // Create learner profile from authenticated user
+  const learnerProfile: LearnerProfile = useMemo(() => {
+    if (!user) {
+      return {
+        id: 'anonymous',
+        name: 'Guest User',
+        email: 'guest@koenig.com',
+        learnerId: 'GUEST',
+        enrolledDate: new Date().toISOString().split('T')[0],
+        organization: 'Koenig Solutions',
+      };
+    }
+    // Determine organization name based on organization ID
+    let organizationName = 'Demo Organization';
+    if (user.organizationId === '22222222-2222-2222-2222-222222222222') {
+      organizationName = 'Koenig Solutions';
+    } else if (user.organizationId === '33333333-3333-3333-3333-333333333333') {
+      organizationName = 'Wargaming';
+    }
+
+    return {
+      id: user.id,
+      name: `${user.firstName} ${user.lastName}`.trim(),
+      email: user.email,
+      learnerId: generateLearnerId(user.id),
+      enrolledDate: new Date().toISOString().split('T')[0],
+      organization: organizationName,
+    };
+  }, [user]);
+
   // Redirect if not authenticated or no access
   useEffect(() => {
     if (authLoading) return;
@@ -99,6 +134,24 @@ export default function LearnovaCourseDashboard({
     }
   }, [authLoading, isAuthenticated, hasAccess, user, router]);
 
+  // Track page view when user accesses course
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || !user || !hasAccess) return;
+
+    // Track course access
+    fetch('/api/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: user.email,
+        action: 'course_view',
+        courseCode,
+        timestamp: new Date().toISOString(),
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+      }),
+    }).catch(() => {}); // Fire and forget
+  }, [authLoading, isAuthenticated, user, hasAccess, courseCode]);
+
   // Data state
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -108,6 +161,20 @@ export default function LearnovaCourseDashboard({
   const [qubitsDashboard, setQubitsDashboard] = useState<QubitsDashboard | null>(null);
   const [progress, setProgress] = useState<LearnerProgress | null>(null);
   const [notifications] = useState<Notification[]>([]);
+
+  // Course resources for the resources tab
+  const courseResources = useMemo(() => getCourseResources(courseCode), [courseCode]);
+
+  // Default trainer for support section
+  const trainer: Trainer = useMemo(() => ({
+    id: 'trainer-1',
+    name: 'Koenig Solutions Support',
+    email: 'support@koenig-solutions.com',
+    phone: '+1 (800) 555-0123',
+    specialization: 'Technical Training & Certification',
+    rating: 4.9,
+    responseTime: '< 24 hours',
+  }), []);
 
   // UI state
   const [activeTab, setActiveTab] = useState<TabId>('course');
@@ -787,7 +854,7 @@ export default function LearnovaCourseDashboard({
       <CelebrationOverlay />
 
       <Header
-        learner={defaultLearnerProfile}
+        learner={learnerProfile}
         notifications={notifications}
         onMarkNotificationRead={() => {}}
       />
@@ -850,8 +917,16 @@ export default function LearnovaCourseDashboard({
                 <CertificateSection
                   course={course}
                   progress={progress}
-                  learner={defaultLearnerProfile}
+                  learner={learnerProfile}
                 />
+              )}
+
+              {activeTab === 'resources' && (
+                <ResourcesSection resources={courseResources} />
+              )}
+
+              {activeTab === 'support' && (
+                <SupportSection trainer={trainer} />
               )}
             </div>
           </div>

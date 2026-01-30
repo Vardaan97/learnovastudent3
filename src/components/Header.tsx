@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import {
   Bell,
   ChevronDown,
@@ -14,6 +15,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
+import HowItWorksModal from '@/components/HowItWorksModal';
+import HelpFAQModal from '@/components/HelpFAQModal';
 import type { LearnerProfile, Notification } from '@/types';
 
 interface HeaderProps {
@@ -27,6 +30,8 @@ export default function Header({ learner, notifications, onMarkNotificationRead,
   const { logout } = useAuth();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [showHelpFAQ, setShowHelpFAQ] = useState(false);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -36,13 +41,14 @@ export default function Header({ learner, notifications, onMarkNotificationRead,
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center">
-              <span className="text-2xl font-bold tracking-tight">
-                <span className="text-cyan-600">K</span>
-                <span className="text-gray-400">O</span>
-                <span className="text-cyan-600">ENIG</span>
-              </span>
-            </div>
+            <Image
+              src="/koenig-logo.svg"
+              alt="Koenig Solutions"
+              width={140}
+              height={42}
+              priority
+              className="h-10 w-auto"
+            />
             <div className="hidden sm:block h-8 w-px bg-gray-200" />
             <span className="hidden sm:block text-sm text-gray-500 font-medium">
               Learning Portal
@@ -55,11 +61,17 @@ export default function Header({ learner, notifications, onMarkNotificationRead,
               <BookOpen className="w-4 h-4" />
               My Courses
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 rounded-full hover:bg-gray-100 transition-colors">
+            <button
+              onClick={() => setShowHowItWorks(true)}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+            >
               <Play className="w-4 h-4" />
               How It Works
             </button>
-            <button className="px-4 py-2 text-sm font-medium text-gray-600 rounded-full hover:bg-gray-100 transition-colors">
+            <button
+              onClick={() => setShowHelpFAQ(true)}
+              className="px-4 py-2 text-sm font-medium text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+            >
               Help & FAQ
             </button>
           </nav>
@@ -193,6 +205,16 @@ export default function Header({ learner, notifications, onMarkNotificationRead,
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      <HowItWorksModal
+        isOpen={showHowItWorks}
+        onClose={() => setShowHowItWorks(false)}
+      />
+      <HelpFAQModal
+        isOpen={showHelpFAQ}
+        onClose={() => setShowHelpFAQ(false)}
+      />
     </header>
   );
 }
