@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next";
 import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { GamificationProvider } from "@/context/GamificationContext";
@@ -65,6 +66,7 @@ export default function RootLayout({
             </ThemeProvider>
           </CompanyProvider>
         </AuthProvider>
+        <Analytics />
         <script
           dangerouslySetInnerHTML={{
             __html: `
